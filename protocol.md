@@ -1,4 +1,4 @@
-# Protocol Proposal
+# Protocol Proposal (Chimpanzee)
 
 ## Init
 **Code:** `0xFF`
@@ -19,6 +19,8 @@ Must:
 | `0x01`| Version            |                                           
 | `0x01`| Sub-version        |                                          
 | `0x01` | Frequency entry | 
+| `0x97` | CRC-8 |
+| `0x0D` | End of packet |
 
 Frequency table:
 
@@ -46,20 +48,20 @@ Must:
 | `0x01`| Version            |                                           |
 | `0x01`| Sub-version        |                                           |
 | `0x??`| Positive or negative response | Based on the initialization    |
+| `0x??` | CRC-8|
+| `0x0D` | End of packet |
 
 `0x00` is the only positive response
 
 ### Init Faults:
-#### Raspberry Pi Init Faults:
-- `0x01` Old Version (Raspberry Pi)
-- `0x02` Serial not opened 
-- `0x03` Nucleo does not answer
+- `0x01` Serial not opened 
+- `0x02` Old Version (Raspberry Pi)
+- `0x03` Old Version (Nucleo)
+- `0x04` Nucleo does not answer
+- `0x05` Invalid answer
+- `0x06` CRC failed
+- `0x07` Thrusters fail initialization
 - Others?
-#### Nucleo:
-- `0x10` Old Version (Nucleo)
-- `0x20` Thrusters fail initialization
-- Others?
-
 
 ## Communication
 **Code:** `0xAA`
@@ -71,8 +73,8 @@ Must:
 | `0x00`| Command           | `0` for motor, `1` for arm                |
 | `0x00`| Address           |                                           |
 | | Arguments (dynamic)| Arguments, variable based on command     |
-| | Checksum          | Checksum from Raspberry Pi                    |
-| `0x0D`| End of packet     |                                           |
+| | CRC-8    |                     |
+| `0x0E`| End of packet     |                                           |
 
 In particular:
 - Command 0 (`motor`) has `8` arguments of `uint16_t` 
@@ -87,7 +89,9 @@ In particular:
 | `0xBB`   | Code              | Heartbeat code                            |
 | `0x00` | Address           |                                           |
 | `0b1`  | Status            | `0` -> Not working, `1` -> OK             |
-| `0b000`  | Status code       |                                           |
+| `0b0000000`  | Status code       |                                           |
+| `0xEA` | CRC | | 
+| `0x0F` | End of packet |
 
 ### Status Codes:
 #### OK Codes:
