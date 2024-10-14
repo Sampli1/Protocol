@@ -9,9 +9,9 @@ const std::string serial_prefix = "/dev/ttyACM";
 
 Serial::Serial() {
     m_connected = false;
-    m_device = "";
     m_fd = -1;
     m_verbose = false;
+    m_baudrate = 9600;
 }
 
 int Serial::connect_serial() {
@@ -23,14 +23,14 @@ int Serial::connect_serial() {
     // Try to connect to different serial interfaces
     for (int i = 0; i < max_tries && m_fd == -1; i++) {
         serial_interface = serial_prefix + std::to_string(i);
-        m_fd = serialOpen(serial_interface.c_str(), 9600);
+        m_fd = serialOpen(serial_interface.c_str(), m_baudrate);
         if (m_fd != -1) { 
-            std::cout << "[SERIAL] " << "Connected to: " << serial_interface << std::endl;
             m_connected = true;
             m_device = serial_interface;
+            std::cout << "[SERIAL] " << "Connected to: " << m_device << std::endl;
         }
     }
-
+    
     return m_connected;
 }
 
@@ -40,6 +40,10 @@ int Serial::get_available_data() {
 
 void Serial::set_verbose(bool val) {
     m_verbose = val;
+}
+
+void Serial::set_baudrate(int baudrate) {
+    m_baudrate = baudrate;
 }
 
 bool Serial::check_connection() {
@@ -74,13 +78,12 @@ std::vector<uint8_t> Serial::get_byte_vector(unsigned char terminal) {
 }
 
 ssize_t Serial::send_byte_array(std::vector<uint8_t> bytes) {
-
     uint8_t* arr = new uint8_t[bytes.size()];
     std::memcpy(arr, bytes.data(), bytes.size() * sizeof(uint8_t));
     ssize_t written_byte = write(m_fd, arr, bytes.size());
 
     if (written_byte > 0 && m_verbose) {
-        std::cout << "SEND: ";
+        std::cout << "SENT: ";
         print_vec(bytes);
     }
     else {

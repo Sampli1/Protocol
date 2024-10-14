@@ -49,7 +49,7 @@ Must:
 | `0x01`| Sub-version        |                                           |
 | `0x??`| Positive or negative response | Based on the initialization    |
 | `0x??` | CRC-8|
-| `0x0D` | End of packet |
+| `0xDD` | End of packet |
 
 `0x00` is the only positive response
 
@@ -74,7 +74,7 @@ Must:
 | `0x00`| Address           |                                           |
 | | Arguments (dynamic)| Arguments, variable based on command     |
 | | CRC-8    |                     |
-| `0x0E`| End of packet     |                                           |
+| `0xCC`| End of packet     |                                           |
 
 In particular:
 - Command 0 (`motor`) has `8` arguments of `uint16_t` 
@@ -91,7 +91,7 @@ In particular:
 | `0b1`  | Status            | `0` -> Not working, `1` -> OK             |
 | `0b0000000`  | Status code       |                                           |
 | `0xEA` | CRC | | 
-| `0x0F` | End of packet |
+| `0xEE` | End of packet |
 
 ### Status Codes:
 #### OK Codes:

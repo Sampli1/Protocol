@@ -12,9 +12,8 @@ class Serial {
         
         std::string get_device() const { return m_device; }
         int get_fd() const { return m_fd; }
-        void set_verbose(bool val);        
-
-
+        void set_verbose(bool val);
+        void set_baudrate(int baudrate);
 
         bool check_connection();
         
@@ -49,6 +48,7 @@ class Serial {
         bool m_connected; 
         std::string m_device;
         bool m_verbose;
+        int m_baudrate;
 };
 
 

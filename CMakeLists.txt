@@ -3,10 +3,11 @@ project(DemoProtocol)
 
 find_library(wiringPi_LIB wiringPi)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 include_directories(${CMAKE_SOURCE_DIR}/include)
+
 
 add_library(SER src/serial.cpp)
 add_library(NP src/nucleo_protocol.cpp)
