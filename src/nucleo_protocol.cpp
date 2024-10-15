@@ -130,7 +130,9 @@ std::pair<COMM_STATUS ,std::optional<std::vector<uint8_t>>> Protocol::get_packet
 
     std::vector<uint8_t> res = serial.get_byte_vector(start_byte, end_byte, ESCAPE_CHAR);
 
+    if (res.size() == 0) return {COMM_STATUS::NUCLEO_INVALID_ANSWER, std::nullopt};
+
     if (verify_response_CRC_8(res) != COMM_STATUS::OK) return {COMM_STATUS::CRC_FAILED, std::nullopt}; 
-    
+
     return {COMM_STATUS::OK, res};
 }
