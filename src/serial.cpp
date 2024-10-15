@@ -57,15 +57,20 @@ void print_vec(std::vector<uint8_t> val) {
 }
 
 
-
-std::vector<uint8_t> Serial::get_byte_vector(unsigned char terminal) {
+std::vector<uint8_t> Serial::get_byte_vector(uint8_t start, uint8_t terminal, uint8_t escape) {
     if (!check_connection()) return {};
     std::vector<uint8_t> msg; 
+    bool start_rec = false;
     uint cooldown = 100; // Allow to fill the buffer
     while (serialDataAvail(m_fd) > 0) {
-        char z = serialGetchar(m_fd);
-        msg.push_back(static_cast<uint8_t>(z)); 
-        if (z == terminal) break; 
+        uint8_t z = serialGetchar(m_fd);
+
+        if (z == start) start_rec = true;
+        
+        if (start_rec) msg.push_back(z);
+        
+        if (z == terminal && start_rec && msg[msg.size() - 2] != escape) break; 
+        
         std::this_thread::sleep_for(std::chrono::milliseconds(cooldown));
     }
 

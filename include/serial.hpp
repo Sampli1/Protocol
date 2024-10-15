@@ -38,10 +38,9 @@ class Serial {
          * @param terminal Final byte
          * @return Byte vector
          */
-        std::vector<uint8_t> get_byte_vector(unsigned char terminal);
+        std::vector<uint8_t> get_byte_vector(uint8_t start, uint8_t terminal, uint8_t escape);
 
         ssize_t send_byte_array(std::vector<uint8_t> bytes);
-
 
     private:
         int m_fd; // File Descriptor

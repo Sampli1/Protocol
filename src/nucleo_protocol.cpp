@@ -27,24 +27,30 @@ uint8_t calculate_CRC_8(const std::vector<uint8_t>& data) {
     return crc;
 }
 
-uint8_t verify_response_CRC_8(const std::vector<uint8_t>& res, uint8_t start_byte) {
-    // Find pattern in array sequence
-
-    auto val = std::find(res.begin(), res.end(), start_byte);
-    
-    if (val == res.end()) return COMM_STATUS::NUCLEO_INVALID_ANSWER;
-
-    unsigned int index = std::distance(res.begin(), val);
- 
+uint8_t verify_response_CRC_8(const std::vector<uint8_t>& res) { 
     uint8_t res_crc = res[res.size() - 2];
-    std::vector<uint8_t> res_to_verify(res.begin() + index, res.begin() + res.size() - 2);
+
+    std::vector<uint8_t> res_to_verify;
     
-    // for (int i = 0; i < res_to_verify.size() ; i++) std::cout <<std::to_string(res_to_verify[i]) << " ";
-    
+    // These lines exclude ESCAPE_CHAR from CRC calculation
+    for (size_t i = 0; i < res.size() - 2; i++) {
+        if (res[i] != ESCAPE_CHAR) {
+            res_to_verify.push_back(res[i]);
+        } 
+        else if (i + 1 < res.size() - 2 && res[i + 1] == ESCAPE_CHAR) {
+            res_to_verify.push_back(res[i + 1]);
+            i++;
+        }
+    } 
+
+
     uint8_t crc_to_verify = calculate_CRC_8(res_to_verify);
 
-
     return res_crc != crc_to_verify ? COMM_STATUS::CRC_FAILED : COMM_STATUS::OK; 
+}
+
+void add_escape_char(std::vector<uint8_t>& vec) {
+    for (int i = 0; i < vec.size(); i++) if (vec[i] == END_SEQ || vec[i] == ESCAPE_CHAR) vec.insert(vec.begin() + (i++), ESCAPE_CHAR);    
 }
 
 // Public functions
@@ -58,14 +64,14 @@ bool Protocol::connect() {
     return serial.connect_serial();
 }
 
-uint8_t Protocol::init(uint8_t frequency) {
+COMM_STATUS Protocol::init(uint8_t frequency) {
     if (!serial.check_connection()) return COMM_STATUS::SERIAL_NOT_ESTABLISHED;
 
     std::vector<uint8_t> packet = {INIT_SEQ, m_address, m_version, m_sub_version, frequency};
 
     uint8_t crc = calculate_CRC_8(packet);
     packet.push_back(crc);
-    packet.push_back(END_SEQ_INIT);
+    packet.push_back(END_SEQ);
 
     // ! TO REMOVE -> ARDUINO NEEDS DELAY TO ESTABLISH SERIAL CONNECTION, NUCLEO HOW MUCH (?)
     std::this_thread::sleep_for(std::chrono::milliseconds(5000));
@@ -74,11 +80,11 @@ uint8_t Protocol::init(uint8_t frequency) {
 
     if (written_bytes == -1) return COMM_STATUS::SERIAL_NOT_ESTABLISHED;
 
-    std::pair<uint8_t ,std::optional<std::vector<uint8_t>>> res = get_packet(TIMEOUT, INIT_SEQ, END_SEQ_INIT);
+    std::pair<COMM_STATUS ,std::optional<std::vector<uint8_t>>> res = get_packet(TIMEOUT, INIT_SEQ, END_SEQ);
  
     if (res.first != COMM_STATUS::OK) return res.first; 
 
-    return res.second.value()[res.second.value().size() - 3];
+    return static_cast<COMM_STATUS>(res.second.value()[res.second.value().size() - 3]);
 }
 
 ssize_t Protocol::send_packet(uint8_t command, uint16_t *packet_array, size_t packet_array_length) {
@@ -96,12 +102,15 @@ ssize_t Protocol::send_packet(uint8_t command, uint16_t *packet_array, size_t pa
     uint8_t crc = calculate_CRC_8(packet);
     
     packet.push_back(crc);
-    packet.push_back(END_SEQ_COMM);
+    add_escape_char(packet);
+    
+    packet.push_back(END_SEQ);
+
 
     return serial.send_byte_array(packet);
 }
 
-std::pair<uint8_t ,std::optional<std::vector<uint8_t>>> Protocol::get_packet(uint timeout, uint8_t start_byte, uint8_t end_byte) {
+std::pair<COMM_STATUS ,std::optional<std::vector<uint8_t>>> Protocol::get_packet(uint timeout, uint8_t start_byte, uint8_t end_byte) {
     
     if (!serial.check_connection()) return {COMM_STATUS::SERIAL_NOT_ESTABLISHED, std::nullopt};
     
@@ -119,9 +128,9 @@ std::pair<uint8_t ,std::optional<std::vector<uint8_t>>> Protocol::get_packet(uin
 
     if (timeout_occurred) return {COMM_STATUS::NUCLEO_TIMEOUT, std::nullopt};
 
-    std::vector<uint8_t> res = serial.get_byte_vector(end_byte);
+    std::vector<uint8_t> res = serial.get_byte_vector(start_byte, end_byte, ESCAPE_CHAR);
 
-    if (verify_response_CRC_8(res, start_byte) != COMM_STATUS::OK) return {COMM_STATUS::CRC_FAILED, std::nullopt}; 
+    if (verify_response_CRC_8(res) != COMM_STATUS::OK) return {COMM_STATUS::CRC_FAILED, std::nullopt}; 
     
     return {COMM_STATUS::OK, res};
 }

@@ -1,9 +1,11 @@
 # Protocol Proposal (Chimpanzee)
 
-## Init
+## Abstract Description
+
+### Init
 **Code:** `0xFF`
 
-###  Raspberry Pi:
+####  Raspberry Pi:
 Must:
 - Specify Nucleo adress
 - Specify version, subversion
@@ -11,7 +13,7 @@ Must:
 
 
 
-#### Packet Structure:
+##### Packet Structure:
 | Byte  | Content           |
 |-------|-------------------|
 | `0xFF`| Init code          |                                           
@@ -20,7 +22,7 @@ Must:
 | `0x01`| Sub-version        |                                          
 | `0x01` | Frequency entry | 
 | `0x97` | CRC-8 |
-| `0x0D` | End of packet |
+| `0xEE` | End of packet |
 
 Frequency table:
 
@@ -34,13 +36,13 @@ Frequency table:
 | 0xFF | 63750 ms| 
 
 
-### Nucleo:
+#### Nucleo:
 Must:
 - Specify adress
 - Specify version
 - Specify state
 
-#### Packet Structure:
+##### Packet Structure:
 | Byte  | Content           | Description                               |
 |-------|-------------------|-------------------------------------------|
 | `0xFF`| Init code          |                                           |
@@ -49,11 +51,11 @@ Must:
 | `0x01`| Sub-version        |                                           |
 | `0x??`| Positive or negative response | Based on the initialization    |
 | `0x??` | CRC-8|
-| `0xDD` | End of packet |
+| `0xEE` | End of packet |
 
 `0x00` is the only positive response
 
-### Init Faults:
+#### Init Faults:
 - `0x01` Serial not opened 
 - `0x02` Old Version (Raspberry Pi)
 - `0x03` Old Version (Nucleo)
@@ -63,7 +65,7 @@ Must:
 - `0x07` Thrusters fail initialization
 - Others?
 
-## Communication
+### Communication
 **Code:** `0xAA`
 
 #### Packet Structure:
@@ -74,13 +76,13 @@ Must:
 | `0x00`| Address           |                                           |
 | | Arguments (dynamic)| Arguments, variable based on command     |
 | | CRC-8    |                     |
-| `0xCC`| End of packet     |                                           |
+| `0xEE`| End of packet     |                                           |
 
 In particular:
 - Command 0 (`motor`) has `8` arguments of `uint16_t` 
 - Command 1 (`arm`) has `1` argument of `uint16_t` 
 
-## Heartbeat
+### Heartbeat
 **Code:** `0xBB`
 
 #### Packet Structure:
@@ -105,3 +107,9 @@ In particular:
 - ...
 
 
+### Byte stuffing
+Behind each `0xEE` byte, it is mandatory to prepend `0x7E` as ESCAPE CHARACTER.
+
+Behind each `0x7E` byte, it is mandatory to prepend `0x7E` as ESCAPE CHARACTER.
+
+**IMPORTANT:** THE CRC CALCULATION **MUST EXCLUDE** ESCAPE CHARACTERS! 

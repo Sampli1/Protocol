@@ -18,9 +18,14 @@
 #define HB_SEQ 0xBB
 #define SIZE_HB 3
 #define TIMEOUT 3000 // ms
-#define END_SEQ_INIT 0xDD
-#define END_SEQ_COMM 0xCC
-#define END_SEQ_HB 0xEE
+#define END_SEQ 0xEE
+#define ESCAPE_CHAR 0x7E
+
+enum COMM_TYPE {
+    MOTOR,
+    ARM
+};
+
 
 enum COMM_STATUS {
     OK,
@@ -53,13 +58,14 @@ class Protocol {
 
         bool connect();
 
-        uint8_t init(uint8_t frequency);
+        COMM_STATUS init(uint8_t frequency);
 
         ssize_t send_packet(uint8_t command, uint16_t* packet_array, size_t packet_array_length);
 
-        std::pair<uint8_t ,std::optional<std::vector<uint8_t>>> get_packet(uint timeout = TIMEOUT, uint8_t start_byte = HB_SEQ, uint8_t end_byte = END_SEQ_HB);
+        std::pair<COMM_STATUS ,std::optional<std::vector<uint8_t>>> get_packet(uint timeout = TIMEOUT, uint8_t start_byte = HB_SEQ, uint8_t end_byte = END_SEQ);
 
     private:
+
         Serial serial;
         uint8_t m_address;
         uint8_t m_version;
