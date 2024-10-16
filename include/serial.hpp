@@ -17,6 +17,7 @@ class Serial {
 
         bool check_connection();
         
+        void disconnect_serial();
         
         /**
         * Connect serial communication, device is assigned automatically

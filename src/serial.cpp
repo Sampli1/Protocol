@@ -51,6 +51,10 @@ bool Serial::check_connection() {
     return m_fd != -1;
 }
 
+void Serial::disconnect_serial() {
+    serialClose(m_fd);
+}
+
 void print_vec(std::vector<uint8_t> val) {
     for (int i = 0; i < val.size(); i++) std::cout << std::hex << static_cast<int>(val[i]) << " ";
     std::cout << std::endl;
@@ -87,12 +91,12 @@ ssize_t Serial::send_byte_array(std::vector<uint8_t> bytes) {
     std::memcpy(arr, bytes.data(), bytes.size() * sizeof(uint8_t));
     ssize_t written_byte = write(m_fd, arr, bytes.size());
 
-    if (written_byte > 0 && m_verbose) {
-        std::cout << "SENT: ";
-        print_vec(bytes);
-    }
-    else {
-        std::cout << "SEND ERROR" << std::endl; 
+    if (m_verbose) {
+        if (written_byte > 0) {
+            std::cout << "SENT: ";
+            print_vec(bytes);
+        }
+        else std::cout << "SEND ERROR" << std::endl; 
     }
 
     return written_byte;

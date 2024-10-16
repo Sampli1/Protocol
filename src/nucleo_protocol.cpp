@@ -136,3 +136,12 @@ std::pair<COMM_STATUS ,std::optional<std::vector<uint8_t>>> Protocol::get_packet
 
     return {COMM_STATUS::OK, res};
 }
+
+
+void Protocol::disconnect() {
+    serial.disconnect_serial();
+}
+
+Protocol::~Protocol() {
+    disconnect();
+}

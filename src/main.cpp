@@ -24,6 +24,8 @@ int main() {
 
     p.send_packet(COMM_TYPE::ARM, p_arm, 1);
 
+    int i = 0;
+
     while (true) {
         std::pair<uint8_t ,std::optional<std::vector<uint8_t>>> res = p.get_packet();
 
@@ -34,7 +36,8 @@ int main() {
                 p.init(0x00);
             }
         }
-
+        i++;
+        if (i == 10000) break;
     }
 
     return 0;    

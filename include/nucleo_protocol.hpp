@@ -50,19 +50,23 @@ enum HB_ERROR_STATUS {
 class Protocol {
     public:
         // Constructor
-        Protocol(uint8_t version, uint8_t sub_version, uint8_t adress, int baudrate , bool verbose = false);
-
+        Protocol(uint8_t version, uint8_t sub_version, uint8_t address, int baudrate , bool verbose = false);
+        ~Protocol();
 
         // Methods
         bool is_connected();
 
         bool connect();
 
+        void disconnect();
+
         COMM_STATUS init(uint8_t frequency);
 
         ssize_t send_packet(uint8_t command, uint16_t* packet_array, size_t packet_array_length);
 
         std::pair<COMM_STATUS ,std::optional<std::vector<uint8_t>>> get_packet(uint timeout = TIMEOUT, uint8_t start_byte = HB_SEQ, uint8_t end_byte = END_SEQ);
+
+
 
     private:
 
