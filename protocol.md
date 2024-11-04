@@ -90,8 +90,9 @@ In particular:
 |----------|-------------------|-------------------------------------------|
 | `0xBB`   | Code              | Heartbeat code                            |
 | `0x00` | Address           |                                           |
-| `0b1`  | Status            | `0` -> Not working, `1` -> OK             |
+| `0b1`  | Status            | `0` -> OK, `1` -> Not Working             |
 | `0b0000000`  | Status code       |                                           |
+| `0x??`| Paylod| According to [Salvatore](https://github.com/Realshoresupply)|
 | `0xEA` | CRC | | 
 | `0xEE` | End of packet |
 
