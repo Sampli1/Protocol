@@ -3,6 +3,10 @@
 #include <thread>
 #include <fcntl.h>
 #include "serial.hpp"
+#include <termios.h>
+#include <unistd.h>
+#include <vector>
+#include <algorithm>
 #include "wiringSerial.h"
 
 const std::string serial_prefix = "/dev/ttyACM";
@@ -16,7 +20,7 @@ Serial::Serial() {
 
 int Serial::connect_serial() {
     std::string serial_interface;
-    int max_tries = 10;
+    int max_tries = 4;
 
     std::cout << "[SERIAL] Trying connecting to serial..." << std::endl;
  
@@ -30,6 +34,8 @@ int Serial::connect_serial() {
             std::cout << "[SERIAL] " << "Connected to: " << m_device << std::endl;
         }
     }
+        
+    tcflush(m_fd, TCIOFLUSH);
     
     return m_connected;
 }
@@ -57,30 +63,32 @@ void Serial::disconnect_serial() {
 
 void print_vec(std::vector<uint8_t> val) {
     for (int i = 0; i < val.size(); i++) std::cout << std::hex << static_cast<int>(val[i]) << " ";
-    std::cout << std::endl;
+    std::cout << std::dec << std::endl;
 }
 
 
-std::vector<uint8_t> Serial::get_byte_vector(uint8_t start, uint8_t terminal, uint8_t escape) {
+std::vector<std::vector<uint8_t>> Serial::get_byte_vectors(uint8_t terminal, uint8_t escape) {
     if (!check_connection()) return {};
-    std::vector<uint8_t> msg; 
-    bool start_rec = false;
-    uint cooldown = 100; // Allow to fill the buffer
+    
+    // Allocate e init vectors (in a very conservative way)
+    std::vector<std::vector<uint8_t>> msg = {};
+    size_t dim = serialDataAvail(m_fd);
+    msg.resize(dim);
+
+
+    int i = 0;    
     while (serialDataAvail(m_fd) > 0) {
         uint8_t z = serialGetchar(m_fd);
-
-        if (z == start) start_rec = true;
-        
-        if (start_rec) msg.push_back(z);
-        
-        if (z == terminal && start_rec && msg[msg.size() - 2] != escape) break; 
-        
-        std::this_thread::sleep_for(std::chrono::milliseconds(cooldown));
+        msg[i].push_back(z);
+        if (z == terminal && msg[i].size() > 2 && msg[i][msg[i].size() - 2] != escape) i++;
     }
+    
+    // Remove empty vectors
+    msg.erase(std::remove_if(msg.begin(), msg.end(), [](const std::vector<uint8_t>& vec) { return vec.empty(); }), msg.end());
 
     if (m_verbose) {
-        std::cout << "RECEIVED: ";
-        print_vec(msg);
+        std::cout << "RECEIVED " << msg.size() << " PACKETS" << std::endl;
+        for (int i = 0; i < msg.size(); i++) print_vec(msg[i]);
     }
 
     return msg; 
@@ -92,12 +100,8 @@ ssize_t Serial::send_byte_array(std::vector<uint8_t> bytes) {
     ssize_t written_byte = write(m_fd, arr, bytes.size());
 
     if (m_verbose) {
-        if (written_byte > 0) {
             std::cout << "SENT: ";
             print_vec(bytes);
         }
-        else std::cout << "SEND ERROR" << std::endl; 
-    }
-
     return written_byte;
 }

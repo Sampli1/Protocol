@@ -39,7 +39,7 @@ class Serial {
          * @param terminal Final byte
          * @return Byte vector
          */
-        std::vector<uint8_t> get_byte_vector(uint8_t start, uint8_t terminal, uint8_t escape);
+        std::vector<std::vector<uint8_t>> get_byte_vectors(uint8_t terminal, uint8_t escape);
 
         ssize_t send_byte_array(std::vector<uint8_t> bytes);
 
