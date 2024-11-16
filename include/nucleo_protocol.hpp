@@ -17,15 +17,13 @@
 #define ESCAPE_CHAR 0x7E
 
 
-#define NUM_SEQ 6
+#define NUM_SEQ 4
 #define COMM_SEQ 0xAA
 #define HB_SEQ 0xBB
-#define SENS_0_SEQ 0xC0
-#define SENS_1_SEQ 0xC1
-#define SENS_2_SEQ 0xC2
+#define SENS_SEQ 0xCC
 #define INIT_SEQ 0xFF
 
-static const uint8_t start_bytes[NUM_SEQ] = { INIT_SEQ, COMM_SEQ, HB_SEQ, SENS_0_SEQ, SENS_1_SEQ, SENS_2_SEQ };
+static const uint8_t start_bytes[NUM_SEQ] = { INIT_SEQ, COMM_SEQ, HB_SEQ, SENS_SEQ };
 
 enum COMM_TYPE {
     MOTOR,
