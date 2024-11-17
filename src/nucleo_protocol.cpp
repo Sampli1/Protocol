@@ -30,8 +30,8 @@ uint8_t calculate_CRC_8(const std::vector<uint8_t>& data) {
     return crc;
 }
 
-uint8_t verify_response_CRC_8(const std::vector<uint8_t>& res) { 
-    uint8_t res_crc = res[res.size() - 2];
+uint8_t verify_response_CRC_8(const std::vector<uint8_t>& res, size_t actual_crc_index) {
+    uint8_t res_crc = res[actual_crc_index];
 
     std::vector<uint8_t> res_to_verify;
     
@@ -46,14 +46,17 @@ uint8_t verify_response_CRC_8(const std::vector<uint8_t>& res) {
         }
     } 
 
-
     uint8_t crc_to_verify = calculate_CRC_8(res_to_verify);
 
     return res_crc != crc_to_verify ? COMM_STATUS::CRC_FAILED : COMM_STATUS::OK; 
 }
 
 void add_escape_char(std::vector<uint8_t>& vec) {
-    for (int i = 0; i < vec.size(); i++) if (vec[i] == END_SEQ || vec[i] == ESCAPE_CHAR) vec.insert(vec.begin() + (i++), ESCAPE_CHAR);    
+    for (int i = vec.size() - 1; i > 0; i--) {
+        if (std::find(bytes_to_escape, bytes_to_escape + NUM_SEQ + 2, vec[i]) != bytes_to_escape + NUM_SEQ + 2) {
+            vec.insert(vec.begin() + i, ESCAPE_CHAR);    
+        }
+    }
 }
 
 keys_t get_keys(std::unordered_map<uint8_t, packet_t> buffer) {
@@ -62,16 +65,34 @@ keys_t get_keys(std::unordered_map<uint8_t, packet_t> buffer) {
     return available_keys;
 }
 
+// Function that returns the actual index of a packet may be affected by byte stuffing
+ssize_t actual_index(std::vector<uint8_t>& raw_packet, size_t index) {
+    ssize_t actual_index = -1;
+    for (int i = 0; i < raw_packet.size(); i++) {
+        if (raw_packet[i] == ESCAPE_CHAR) {
+            i++;
+            if (i >= raw_packet.size()) break;
+        }
+        actual_index++;
+        if (index == actual_index) return i;
+    }
+    return -1;
+}
+
 // ! URGE TO REVIEW 
 bool complete_packet(std::vector<uint8_t> packet, std::unordered_map<uint8_t, packet_t>& buffer) {
     size_t dim = packet.size();
     if (dim < 3) return false;
+
     bool is_valid = std::find(start_bytes, start_bytes + NUM_SEQ, packet[0]) != start_bytes + NUM_SEQ // Is a start of packet?
     && (packet[dim - 1] == END_SEQ // Ends with END_SEQ?
     && (packet[dim - 2] != ESCAPE_CHAR // Is there ESCAPE_CHAR?
     || (packet[dim - 2] == ESCAPE_CHAR && packet[dim - 3] == ESCAPE_CHAR))); // There is no ESCAPING SEQUENCE?
+
     if (is_valid) {
-        if (verify_response_CRC_8(packet) != COMM_STATUS::OK) buffer[packet[0]] = {COMM_STATUS::CRC_FAILED, packet};
+        size_t actual_crc_index = actual_index(packet, 3);
+        if (actual_crc_index == -1) return false;
+        if (verify_response_CRC_8(packet, actual_crc_index) != COMM_STATUS::OK) buffer[packet[0]] = {COMM_STATUS::CRC_FAILED, packet};
         else buffer[packet[0]] = {COMM_STATUS::OK, packet};
     }
     return is_valid;
@@ -88,10 +109,11 @@ bool Protocol::connect() {
     return m_serial.connect_serial();
 }
 
-COMM_STATUS Protocol::init(uint8_t frequency) {
+COMM_STATUS Protocol::init(uint8_t interval, uint8_t max_retries, uint8_t time_between_retries) {
+
     if (!m_serial.check_connection()) return COMM_STATUS::SERIAL_NOT_ESTABLISHED;
 
-    std::vector<uint8_t> packet = {INIT_SEQ, m_address, m_version, m_sub_version, frequency};
+    std::vector<uint8_t> packet = {INIT_SEQ, m_address, m_version, m_sub_version, interval};
 
     uint8_t crc = calculate_CRC_8(packet);
     packet.push_back(crc);
@@ -99,31 +121,31 @@ COMM_STATUS Protocol::init(uint8_t frequency) {
  
 
     // ! TO REMOVE -> ARDUINO NEEDS DELAY TO ESTABLISH SERIAL CONNECTION, NUCLEO HOW MUCH (?)
-    std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
     
     ssize_t written_bytes = m_serial.send_byte_array(packet);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     
     if (written_bytes == -1) return COMM_STATUS::SERIAL_NOT_ESTABLISHED;    
 
+    size_t retry = 0;
     keys_t available_keys = update_buffer();
-    while (std::find(available_keys.begin(), available_keys.end(), INIT_SEQ) == available_keys.end()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    while (std::find(available_keys.begin(), available_keys.end(), INIT_SEQ) == available_keys.end() && retry < max_retries) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(time_between_retries));
         available_keys = update_buffer();
+        retry++;
     }
+
+
     packet_t res = get_packet(INIT_SEQ, END_SEQ);
  
     if (res.first != COMM_STATUS::OK) return res.first; 
 
-    /*
-        UNLUCKY PACKET INCOMING: 0XFF 0X00 0X00 0X00 status: 0X00 (OK) crc: *0X7E* 0X7E 0xEE
-        So if you extract size - 3, you will get escape char instead of status, to prevent this, we go back of 1 more
-    */ 
     std::vector<uint8_t> res_val = res.second.value();
-    size_t status_index = res_val.size() - 3;
+    size_t status_index = actual_index(res_val, 4);
 
-    return static_cast<COMM_STATUS>(res_val[status_index] == ESCAPE_CHAR ? res_val[status_index - 1] : res_val[status_index]);
+    if (status_index == -1) return COMM_STATUS::NUCLEO_INVALID_ANSWER;
+
+    return static_cast<COMM_STATUS>(res_val[status_index]);
 }
 
 ssize_t Protocol::send_packet(uint8_t command, uint16_t *packet_array, size_t packet_array_length) {
@@ -141,6 +163,8 @@ ssize_t Protocol::send_packet(uint8_t command, uint16_t *packet_array, size_t pa
 
     uint8_t crc = calculate_CRC_8(packet);
     
+
+    // TODO change order
     packet.push_back(crc);
 
     // Byte stuffing 

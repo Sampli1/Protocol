@@ -15,7 +15,7 @@ void print_vec_(std::vector<uint8_t> val) {
 
 int main() {
     Protocol p(VERSION, SUB_VERSION, 0x01, BAUDRATE, true);
-    uint16_t p_motor[8] = { 0xEEEE, 0x2230, 0xffff, 0x00dd, 0xdead, 0xbeef, 0x7E7E, 0x7E7E };
+    uint16_t p_motor[8] = { 0xEEEE, 0x2230, 0xffff, 0xaabb, 0xdead, 0xbeef, 0xaabb, 0x7E7E };
     uint16_t p_arm[1] = { 0xEEEE };
 
     // INIT 
@@ -37,6 +37,8 @@ int main() {
     COMM_STATUS status;
     p.send_packet(COMM_TYPE::MOTOR, p_motor, 8);
     p.send_packet(COMM_TYPE::ARM, p_arm, 1);
+
+
     while (true) {
         if (p.is_connected()) keys  = p.update_buffer();
         else {
@@ -71,7 +73,7 @@ int main() {
         }
 
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
 
     return 0;    

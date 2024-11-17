@@ -59,8 +59,8 @@ Must:
 | `0xAA`| Code              | Communication code                       |
 | `0x00`| Command           | See list below |
 | `0x00`| Address           |    In case of multiple Nucleo|
+| | CRC-8    |   See [CRC-8 calculation rules]()                  |
 | | Arguments (dynamic)| Arguments, variable based on command     |
-| | CRC-8    |                     |
 | `0xEE`| End of packet     |                                           |
 
 
@@ -77,7 +77,7 @@ In particular:
 | Byte     | Content           | Description                               |
 |----------|-------------------|-------------------------------------------|
 | `0x00` | Sensor_ID          | ID for the sensor Nucleo must query |
-| `0x76` | I<sup>2</sup>C  address        |                                            |
+| `0x76` | I<sup>2</sup>C  address        |  |
 | `0x00` | Interval entry     | See [Interval table](interval-table) |
 | `0x00`| Type of sensor | See [type sensor list](type-sensor-list)|
 
@@ -128,7 +128,12 @@ Behind each `0xEE` byte, it is mandatory to prepend `0x7E` as ESCAPE CHARACTER.
 
 Behind each `0x7E` byte, it is mandatory to prepend `0x7E` as ESCAPE CHARACTER.
 
-**IMPORTANT:** THE CRC CALCULATION **MUST EXCLUDE** ESCAPE CHARACTERS AND FINAL BYTE! 
+### CRC-8 Calculation Rules
+
+The CRC calculation must consider all the bytes in the packet, excluding:
+- ESCAPE CHARACTER(S)
+- END OF PACKET BYTE
+
 
 ### Interval table
 Interval table:

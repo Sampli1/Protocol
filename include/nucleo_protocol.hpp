@@ -12,10 +12,8 @@
 
 #include "serial.hpp"
 
-
 #define END_SEQ 0xEE
 #define ESCAPE_CHAR 0x7E
-
 
 #define NUM_SEQ 4
 #define COMM_SEQ 0xAA
@@ -23,13 +21,18 @@
 #define SENS_SEQ 0xCC
 #define INIT_SEQ 0xFF
 
+#define MAX_RETRY 5
+#define TIME_BETWEEN 50 // ms
+
 static const uint8_t start_bytes[NUM_SEQ] = { INIT_SEQ, COMM_SEQ, HB_SEQ, SENS_SEQ };
+static const uint8_t bytes_to_escape[NUM_SEQ + 2] { INIT_SEQ, COMM_SEQ, HB_SEQ, SENS_SEQ, END_SEQ, ESCAPE_CHAR };
+
 
 enum COMM_TYPE {
     MOTOR,
-    ARM
+    ARM,
+    SENSOR
 };
-
 
 enum COMM_STATUS {
     OK,
@@ -62,15 +65,16 @@ class Protocol {
         // Constructor
         Protocol(uint8_t version, uint8_t sub_version, uint8_t address, int baudrate , bool verbose = false);
         ~Protocol();
+
+
         // Methods
         bool is_connected();
 
         bool connect();
 
         void disconnect();
-
         
-        COMM_STATUS init(uint8_t frequency);
+        COMM_STATUS init(uint8_t inteval, uint8_t max_retries = MAX_RETRY, uint8_t time_between_retries = TIME_BETWEEN);
 
         ssize_t send_packet(uint8_t command, uint16_t* packet_array, size_t packet_array_length);
 
@@ -89,7 +93,6 @@ class Protocol {
         std::unordered_map<uint8_t, packet_t> m_buffer;
 
 };
-
 
 
 #endif // NUCLEO_PROCOL_
