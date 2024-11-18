@@ -8,6 +8,7 @@
 #include <sstream>
 #include <optional>
 #include <unordered_map>
+#include <vector>
 #include <algorithm> 
 
 #include "serial.hpp"
@@ -20,6 +21,8 @@
 #define HB_SEQ 0xBB
 #define SENS_SEQ 0xCC
 #define INIT_SEQ 0xFF
+#define RESERVED_BUFFER_ENTRY 0xDE
+
 
 #define MAX_RETRY 5
 #define TIME_BETWEEN 50 // ms
@@ -74,13 +77,13 @@ class Protocol {
 
         void disconnect();
         
-        COMM_STATUS init(uint8_t inteval, uint8_t max_retries = MAX_RETRY, uint8_t time_between_retries = TIME_BETWEEN);
+        COMM_STATUS init(uint8_t interval, uint8_t max_retries = MAX_RETRY, uint8_t time_between_retries = TIME_BETWEEN);
 
         ssize_t send_packet(uint8_t command, uint16_t* packet_array, size_t packet_array_length);
 
         packet_t get_packet(uint8_t start_byte, uint8_t end_byte = END_SEQ);
 
-        keys_t update_buffer();
+        keys_t update_buffer(bool raw = false);
 
 
     private:

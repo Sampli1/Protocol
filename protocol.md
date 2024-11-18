@@ -16,7 +16,8 @@ Must:
 |-------|-------------------|------------|
 | `0xFF`| Init code          ||                                           
 | `0x00`| Address            | |     
-| `0x01`| Version            |  |                                    | `0x01`|Sub-version  | |                                         
+| `0x01`| Version  |  |
+| `0x01`|Sub-version  ||                                        
 | `0x01` | Interval entry | See [Interval table](interval-table)|
 | `0x97` | CRC-8 ||
 | `0xEE` | End of packet | Optional due init fixed dimension|
@@ -59,8 +60,8 @@ Must:
 | `0xAA`| Code              | Communication code                       |
 | `0x00`| Command           | See list below |
 | `0x00`| Address           |    In case of multiple Nucleo|
-| | CRC-8    |   See [CRC-8 calculation rules]()                  |
 | | Arguments (dynamic)| Arguments, variable based on command     |
+| | CRC-8    |   See [CRC-8 calculation rules]()                  |
 | `0xEE`| End of packet     |                                           |
 
 

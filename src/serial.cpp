@@ -67,6 +67,7 @@ void print_vec(std::vector<uint8_t> val) {
 }
 
 
+// This function get ALL the packets in the buffer
 std::vector<std::vector<uint8_t>> Serial::get_byte_vectors(uint8_t terminal, uint8_t escape) {
     if (!check_connection()) return {};
     

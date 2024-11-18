@@ -5,6 +5,7 @@
 #include <vector>
 #include <unistd.h>
 #include <cstring>
+#include <unordered_map>
 
 class Serial {
     public:

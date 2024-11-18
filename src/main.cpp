@@ -17,6 +17,8 @@ int main() {
     Protocol p(VERSION, SUB_VERSION, 0x01, BAUDRATE, true);
     uint16_t p_motor[8] = { 0xEEEE, 0x2230, 0xffff, 0xaabb, 0xdead, 0xbeef, 0xaabb, 0x7E7E };
     uint16_t p_arm[1] = { 0xEEEE };
+    uint16_t p_sensor[2] = { 0x0076, 0x0001 };
+
 
     // INIT 
     while (p.init(0x00) != COMM_STATUS::OK) {
@@ -37,6 +39,7 @@ int main() {
     COMM_STATUS status;
     p.send_packet(COMM_TYPE::MOTOR, p_motor, 8);
     p.send_packet(COMM_TYPE::ARM, p_arm, 1);
+    p.send_packet(COMM_TYPE::SENSOR, p_sensor, 2);
 
 
     while (true) {

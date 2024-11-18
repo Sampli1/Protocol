@@ -51,6 +51,35 @@ void sendInitResponse(uint8_t responseCode) {
     Serial.write(END_CODE_INIT);    // Invia il codice di fine pacchetto
 }
 
+#define SENSOR_CODE 0xAA
+#define SENSOR1_CODE 0x00  // Codice per il sensore 1
+#define SENSOR2_CODE 0x01  // Codice per il sensore 2
+#define SENSOR3_CODE 0x02  // Codice per il sensore 3
+#define END_CODE_SENSOR 0xEE  // Codice finale per i pacchetti sensore
+
+// Funzione per inviare i dati di un sensore
+void sendSensorData(uint8_t sensorCode, uint16_t sensorValue) {
+    uint8_t packet[9];  // Array per costruire il pacchetto
+    packet[0] = SENSOR_CODE;
+    packet[1] = 0x00;
+    packet[2] = 0x00;
+    packet[3] = sensorCode;
+    packet[4] = 0x00;                
+    packet[5] = (sensorValue >> 8) & 0xFF; // Byte alto del valore del sensore
+    packet[6] = sensorValue & 0xFF;        // Byte basso del valore del sensore
+
+    // Calcola il CRC sui primi 7 byte del pacchetto
+    uint8_t crc = calculate_CRC_8(packet, 7);
+
+    // Aggiungi il CRC e il codice di fine
+    packet[7] = crc;
+    packet[8] = END_CODE_SENSOR;
+
+    // Invia il pacchetto tramite la seriale
+    Serial.write(packet, 9);
+}
+
+
 // Funzione per gestire l'inizializzazione
 void handleInitPacket() {
     if (Serial.available() >= 6) { // Assicurati che ci siano almeno 6 byte disponibili
@@ -60,7 +89,7 @@ void handleInitPacket() {
             uint8_t ver = Serial.read();
             uint8_t subVer = Serial.read();
             uint8_t frequency = Serial.read();  // Frequenza non utilizzata in questa simulazione
-            uint8_t CRC = Serial.read();
+           uint8_t CRC = Serial.read();
 
             // Logica per controllare la versione
             if (ver < version || (ver == version && subVer < subVersion)) {
@@ -101,7 +130,7 @@ void sendPacketWithEscape(uint8_t* packet, size_t length) {
     }
 
     // Aggiungi l'ultimo byte del pacchetto (il codice di fine) senza modifiche
-    escapedPacket[escapedLength++] = packet[length - 1];
+    escapedPacket[escapedLength++] = packet[length - 1];                                           
 
     // Invia il pacchetto "escaped"
     Serial.write(escapedPacket, escapedLength);
@@ -151,8 +180,31 @@ void loop() {
 
     // Simula il pacchetto di heartbeat ogni 1 secondo
     static unsigned long lastHeartbeat = 0;
-    if (millis() - lastHeartbeat >= 1000 && inited) {
+    if (millis() - lastHeartbeat >= 10 && inited) {
         lastHeartbeat = millis();
         sendHeartbeat(); // Invia pacchetto di heartbeat con valori predefiniti
+    }
+
+    // Simula i pacchetti dei sensori
+    static unsigned long lastSensor1 = 0;
+    static unsigned long lastSensor2 = 0;
+    static unsigned long lastSensor3 = 0;
+
+    if (millis() - lastSensor1 >= 500 && inited) {
+        lastSensor1 = millis();
+        uint16_t sensor1Value = random(0, 1024);  // Valore casuale per il sensore 1
+        sendSensorData(SENSOR1_CODE, sensor1Value);
+    }
+
+    if (millis() - lastSensor2 >= 700 && inited) {
+        lastSensor2 = millis();
+        uint16_t sensor2Value = random(0, 1024);  // Valore casuale per il sensore 2
+        sendSensorData(SENSOR2_CODE, sensor2Value);
+    }
+
+    if (millis() - lastSensor3 >= 900 && inited) {
+        lastSensor3 = millis();
+        uint16_t sensor3Value = random(0, 1024);  // Valore casuale per il sensore 3
+        sendSensorData(SENSOR3_CODE, sensor3Value);
     }
 }
