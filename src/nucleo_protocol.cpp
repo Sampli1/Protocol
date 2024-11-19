@@ -10,7 +10,6 @@ Protocol::Protocol(uint8_t version, uint8_t sub_version, uint8_t address, int ba
     m_version = version;
     m_sub_version = sub_version;
     m_address = address;
-    m_raw_buffer = {};
     m_buffer = {};
     
 
@@ -19,75 +18,6 @@ Protocol::Protocol(uint8_t version, uint8_t sub_version, uint8_t address, int ba
     m_serial.connect_serial();
 }
 
-// Utils -> Private
-
-uint8_t calculate_CRC_8(const std::vector<uint8_t>& data) {
-    uint8_t crc = 0x00;
-    uint8_t polynomial = 0x07; 
-    for (auto byte : data) {
-        crc ^= byte; 
-        for (int i = 0; i < 8; i++) {
-            if (crc & 0x80) crc = (crc << 1) ^ polynomial;
-            else crc <<= 1;
-        }
-    }
-    return crc;
-}
-
-uint8_t verify_response_CRC_8(const std::vector<uint8_t>& res) {
-    uint8_t res_crc = res[res.size() - 2];
-
-    std::vector<uint8_t> res_to_verify;
-    
-    // These lines exclude ESCAPE_CHAR from CRC calculation
-    for (size_t i = 0; i < res.size() - 2; i++) {
-        if (res[i] != ESCAPE_CHAR) {
-            res_to_verify.push_back(res[i]);
-        } 
-        else if (i + 1 < res.size() - 2 && res[i + 1] == ESCAPE_CHAR) {
-            res_to_verify.push_back(res[i + 1]);
-            i++;
-        }
-    } 
-
-    uint8_t crc_to_verify = calculate_CRC_8(res_to_verify);
-
-    return res_crc != crc_to_verify ? COMM_STATUS::CRC_FAILED : COMM_STATUS::OK; 
-}
-
-void add_escape_char(std::vector<uint8_t>& vec) {
-    for (int i = vec.size() - 1; i > 0; i--) {
-        if (std::find(bytes_to_escape, bytes_to_escape + NUM_SEQ + 2, vec[i]) != bytes_to_escape + NUM_SEQ + 2) {
-            vec.insert(vec.begin() + i, ESCAPE_CHAR);    
-        }
-    }
-}
-
-void remove_escape_char(std::vector<uint8_t>& input) {
-    size_t write_index = 0;
-    for (size_t read_index = 0; read_index < input.size(); read_index++) {
-        if (input[read_index] == ESCAPE_CHAR && read_index + 1 < input.size()) {
-            input[write_index++] = input[++read_index];
-        } else {
-            input[write_index++] = input[read_index];
-        }
-    }
-    input.resize(write_index);
-}
-
-keys_t get_keys(std::unordered_map<uint8_t, packet_t> buffer) {
-    keys_t available_keys;
-    for (auto pair : buffer) if (pair.first != RESERVED_BUFFER_ENTRY) available_keys.push_back(pair.first);
-    return available_keys;
-}
-
-bool is_valid_packet(std::vector<uint8_t> packet) {
-    size_t dim = packet.size();
-    return std::find(start_bytes, start_bytes + NUM_SEQ, packet[0]) != start_bytes + NUM_SEQ // Is a start of packet?
-    && (packet[dim - 1] == END_SEQ // Ends with END_SEQ?
-    && (packet[dim - 2] != ESCAPE_CHAR // Is there ESCAPE_CHAR?
-    || (packet[dim - 2] == ESCAPE_CHAR && packet[dim - 3] == ESCAPE_CHAR))); // There is no ESCAPING SEQUENCE?
-}
 
 void handle_packet_presentation(std::unordered_map<uint8_t, packet_t> &buffer, std::vector<uint8_t> &packet, std::vector<uint8_t> &entries) {
     uint8_t entry, start_index, end_index;
@@ -98,19 +28,18 @@ void handle_packet_presentation(std::unordered_map<uint8_t, packet_t> &buffer, s
         case INIT_SEQ:
             entry = packet[0];
             start_index = 0;
-            end_index = packet.size() - 2;
             break;
-        case COMM_SEQ:  
+        case COMM_SEQ:
+            if (packet.size() < 5) return; // NEED A WAY 
             entry = packet[3]; 
             start_index = 3;
-            end_index = packet.size() - 3;
             break;
         case HB_SEQ:
             entry = packet[0];
             start_index = 2;
-            end_index = packet.size() - 3;
             break;
     }
+    end_index = packet.size() - 2;
     
     // Is in the map already?
     if (std::find(entries.begin(), entries.end(), entry) != entries.end()) return; 
@@ -124,24 +53,48 @@ void handle_packet_presentation(std::unordered_map<uint8_t, packet_t> &buffer, s
     buffer[entry] = { COMM_STATUS::OK, slice }; 
 }
 
-void handle_buffer(std::unordered_map<uint8_t, packet_t> &buffer, std::vector<uint8_t> &packet, std::vector<uint8_t> &entries) {
-    if (buffer.find(RESERVED_BUFFER_ENTRY) != buffer.end()) {
-        std::vector<uint8_t> buffer_entry = buffer[RESERVED_BUFFER_ENTRY].second.value();
-        if (buffer_entry.size() > 0) {
-            buffer_entry.insert(buffer_entry.end(), packet.begin(), packet.end());
-            if (is_valid_packet(buffer_entry)) {
-                std::cout << "\nrebuilded" << std::endl;
-                print_vec__(buffer_entry);
-                handle_packet_presentation(buffer, buffer_entry, entries);
-            }
-        }
+bool handle_buffer(std::unordered_map<uint8_t, packet_t> &buffer, std::vector<uint8_t> &packet, std::vector<uint8_t> &entries) {
+    // Is the buffer empty?
+    if (buffer.find(RESERVED_BUFFER_ENTRY) == buffer.end()) {
+        buffer[RESERVED_BUFFER_ENTRY] = {COMM_STATUS::OK, packet};
+        return false;
     }
-    else buffer[RESERVED_BUFFER_ENTRY] = {COMM_STATUS::OK, packet};
+
+    // Update the buffer and check validity
+    std::vector<uint8_t> buffer_entry = buffer[RESERVED_BUFFER_ENTRY].second.value();
+    buffer_entry.insert(buffer_entry.end(), packet.begin(), packet.end());
+    if (is_valid_packet(buffer_entry)) {
+        std::cout << "\nrebuilded" << std::endl;
+        print_vec__(buffer_entry);
+        buffer.erase(RESERVED_BUFFER_ENTRY);
+        handle_packet_presentation(buffer, buffer_entry, entries);
+        return true;
+    } 
+
+    buffer[RESERVED_BUFFER_ENTRY] = {COMM_STATUS::OK, buffer_entry};
+    return false;    
 }
 
 void filter_latest(std::unordered_map<uint8_t, packet_t> &buffer, std::vector<std::vector<uint8_t>> &packets) {
+    if (packets.size() == 0) return;
+    
     std::vector<uint8_t> entries = {};
-    for (int i = packets.size() - 1; i >= 0; i--) {
+    int end = 0;
+
+
+    // Rebuild first packet (These lines are important in the unlucky case of 2 or more incomplete packet in stream)
+    if (buffer.find(RESERVED_BUFFER_ENTRY) != buffer.end()) {
+        for (int i = 0; i < packets.size(); i++) if (handle_buffer(buffer, packets[end++], entries)) break;        
+    }
+
+    if (buffer.find(RESERVED_BUFFER_ENTRY) != buffer.end() && buffer[RESERVED_BUFFER_ENTRY].second.value().size() > 20) {
+        std::cout << "ERASED" << std::endl;
+        buffer.erase(RESERVED_BUFFER_ENTRY);
+    }
+    
+
+    // End index to avoid to reconsider the first incomplete packets
+    for (int i = packets.size() - 1; i >= end; i--) {
         if (is_valid_packet(packets[i])) handle_packet_presentation(buffer, packets[i], entries);
         else handle_buffer(buffer, packets[i], entries);
     }   
@@ -165,18 +118,16 @@ COMM_STATUS Protocol::init(uint8_t interval, uint8_t max_retries, uint8_t time_b
     std::vector<uint8_t> packet = {INIT_SEQ, m_address, m_version, m_sub_version, interval};
     packet.push_back(calculate_CRC_8(packet));
     packet.push_back(END_SEQ); 
-
-    // ! TO REMOVE -> ARDUINO NEEDS DELAY TO ESTABLISH SERIAL CONNECTION, NUCLEO HOW MUCH (?)
-    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
-    
+ 
     ssize_t written_bytes = m_serial.send_byte_array(packet);
     
     if (written_bytes == -1) return COMM_STATUS::SERIAL_NOT_ESTABLISHED;    
 
+
     size_t retry = 0;
     keys_t available_keys = update_buffer();
     while (std::find(available_keys.begin(), available_keys.end(), INIT_SEQ) == available_keys.end() && retry < max_retries) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(time_between_retries));
+        std::this_thread::sleep_for(std::chrono::microseconds(time_between_retries));
         available_keys = update_buffer();
         std::cout << "KEYS" << std::endl;
         print_vec__(available_keys);
@@ -189,8 +140,7 @@ COMM_STATUS Protocol::init(uint8_t interval, uint8_t max_retries, uint8_t time_b
 
     std::vector<uint8_t> res_val = res.second.value();
 
-    // TODO: to implements version/subversion check
-
+    if (m_version < res_val[2] || (m_version == res_val[2] && m_sub_version < res_val[3])) return COMM_STATUS::PI_OLD_VERSION;
 
     return static_cast<COMM_STATUS>(res_val[4]); // 4 -> init index
 }
@@ -233,15 +183,37 @@ packet_t Protocol::get_packet(uint8_t start_byte, uint8_t end_byte) {
     return packet;
 }
 
-
-
-keys_t Protocol::update_buffer(bool raw) { 
+keys_t Protocol::update_buffer() { 
     std::vector<std::vector<uint8_t>> packets = m_serial.get_byte_vectors(END_SEQ, ESCAPE_CHAR);
 
-    std::cout << "ciao" << std::endl;
     filter_latest(m_buffer, packets);
 
     return get_keys(m_buffer);
+}
+
+bool Protocol::set_sensor(uint8_t ID, uint8_t i2c_address, uint8_t interval_entry, uint8_t type) {
+    if (ID == RESERVED_BUFFER_ENTRY) {
+        std::cerr << "This ID is reserved" << std::endl;
+        return false;
+    }
+    uint16_t p_sensor[2];
+
+    p_sensor[0] = (static_cast<uint16_t>(ID) << 8) | i2c_address;
+    p_sensor[1] = (static_cast<uint16_t>(interval_entry) << 8) | type;
+
+    return send_packet(COMM_TYPE::SENSOR, p_sensor, 2) != -1;
+}
+
+packet_t Protocol::get_sensor(uint8_t ID) {
+    if (ID == RESERVED_BUFFER_ENTRY) {
+        std::cerr << "This ID is reserved" << std::endl;
+        return {COMM_STATUS::SERIAL_NOT_IN_BUFFER, std::nullopt};
+    }
+    return get_packet(ID);
+}
+
+packet_t Protocol::get_heartbeat() {
+    return get_packet(HB_SEQ);
 }
 
 void Protocol::disconnect() {

@@ -32,6 +32,10 @@ class Serial {
         */
         int get_available_data();
 
+
+        void set_device(std::string serial_interface);
+        std::string get_device();
+
         
         
 

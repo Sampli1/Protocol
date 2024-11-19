@@ -20,7 +20,7 @@ Serial::Serial() {
 
 int Serial::connect_serial() {
     std::string serial_interface;
-    int max_tries = 4;
+    int max_tries = 10;
 
     std::cout << "[SERIAL] Trying connecting to serial..." << std::endl;
  
@@ -30,8 +30,9 @@ int Serial::connect_serial() {
         m_fd = serialOpen(serial_interface.c_str(), m_baudrate);
         if (m_fd != -1) { 
             m_connected = true;
-            m_device = serial_interface;
-            std::cout << "[SERIAL] " << "Connected to: " << m_device << std::endl;
+            // !!!!!!!!!!!!!!!!!!!!! TO FIX THIS THING, RE-INIT DOESNT WORK
+            set_device(serial_interface);
+            std::cout << "[SERIAL] " << "Connected to: " << serial_interface << std::endl;
         }
     }
         
@@ -52,8 +53,17 @@ void Serial::set_baudrate(int baudrate) {
     m_baudrate = baudrate;
 }
 
+void Serial::set_device(std::string serial_interface) {
+    m_device = serial_interface;
+}
+
+std::string Serial::get_device() {
+    return m_device;    
+}
+
 bool Serial::check_connection() {
-    m_fd = open(m_device.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
+    m_fd = open(get_device().c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
+    std::cout << m_fd << std::endl;
     return m_fd != -1;
 }
 
@@ -72,16 +82,23 @@ std::vector<std::vector<uint8_t>> Serial::get_byte_vectors(uint8_t terminal, uin
     if (!check_connection()) return {};
     
     // Allocate e init vectors (in a very conservative way)
-    std::vector<std::vector<uint8_t>> msg = {};
-    size_t dim = serialDataAvail(m_fd);
-    msg.resize(dim);
-
+    std::vector<std::vector<uint8_t>> msg = {{}};
 
     int i = 0;    
     while (serialDataAvail(m_fd) > 0) {
         uint8_t z = serialGetchar(m_fd);
         msg[i].push_back(z);
-        if (z == terminal && msg[i].size() > 2 && msg[i][msg[i].size() - 2] != escape) i++;
+        
+        if (z == terminal) {
+            if (msg[i].size() == 1) {
+                i++;
+                msg.push_back({});
+            }
+            else if (msg[i][msg[i].size() - 2] != escape) {
+                i++;
+                msg.push_back({});
+            }
+        }
     }
     
     // Remove empty vectors
