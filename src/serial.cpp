@@ -9,7 +9,7 @@
 #include <algorithm>
 #include "wiringSerial.h"
 
-const std::string serial_prefix = "/dev/ttyACM";
+const std::vector<std::string> serial_prefixes = {"/dev/ttyUSB", "/dev/ttyACM"};
 
 Serial::Serial() {
     m_connected = false;
@@ -25,14 +25,16 @@ int Serial::connect_serial() {
     std::cout << "[SERIAL] Trying connecting to serial..." << std::endl;
  
     // Try to connect to different serial interfaces
-    for (int i = 0; i < max_tries && m_fd == -1; i++) {
-        serial_interface = serial_prefix + std::to_string(i);
-        m_fd = serialOpen(serial_interface.c_str(), m_baudrate);
-        if (m_fd != -1) { 
-            m_connected = true;
-            // !!!!!!!!!!!!!!!!!!!!! TO FIX THIS THING, RE-INIT DOESNT WORK
-            set_device(serial_interface);
-            std::cout << "[SERIAL] " << "Connected to: " << serial_interface << std::endl;
+    for (std::string serial_prefix: serial_prefixes) {
+        for (int i = 0; i < max_tries; i++) {
+            serial_interface = serial_prefix + std::to_string(i);
+            m_fd = serialOpen(serial_interface.c_str(), m_baudrate);
+            if (m_fd != -1) { 
+                m_connected = true;
+                set_device(serial_interface);
+                std::cout << "[SERIAL] " << "Connected to: " << serial_interface << std::endl;
+                break;
+            }
         }
     }
         
@@ -63,7 +65,6 @@ std::string Serial::get_device() {
 
 bool Serial::check_connection() {
     m_fd = open(get_device().c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
-    std::cout << m_fd << std::endl;
     return m_fd != -1;
 }
 
@@ -72,7 +73,7 @@ void Serial::disconnect_serial() {
 }
 
 void print_vec(std::vector<uint8_t> val) {
-    for (int i = 0; i < val.size(); i++) std::cout << std::hex << static_cast<int>(val[i]) << " ";
+    for (int i = 0; i < val.size(); i++) std::cout << "  " << std::hex << static_cast<int>(val[i]) << " ";
     std::cout << std::dec << std::endl;
 }
 
@@ -81,7 +82,6 @@ void print_vec(std::vector<uint8_t> val) {
 std::vector<std::vector<uint8_t>> Serial::get_byte_vectors(uint8_t terminal, uint8_t escape) {
     if (!check_connection()) return {};
     
-    // Allocate e init vectors (in a very conservative way)
     std::vector<std::vector<uint8_t>> msg = {{}};
 
     int i = 0;    
@@ -105,7 +105,7 @@ std::vector<std::vector<uint8_t>> Serial::get_byte_vectors(uint8_t terminal, uin
     msg.erase(std::remove_if(msg.begin(), msg.end(), [](const std::vector<uint8_t>& vec) { return vec.empty(); }), msg.end());
 
     if (m_verbose) {
-        std::cout << "RECEIVED " << msg.size() << " PACKETS" << std::endl;
+        std::cout << "[SERIAL] RECEIVED " << msg.size() << " PACKETS" << std::endl;
         for (int i = 0; i < msg.size(); i++) print_vec(msg[i]);
     }
 
@@ -113,13 +113,10 @@ std::vector<std::vector<uint8_t>> Serial::get_byte_vectors(uint8_t terminal, uin
 }
 
 ssize_t Serial::send_byte_array(std::vector<uint8_t> bytes) {
-    uint8_t* arr = new uint8_t[bytes.size()];
-    std::memcpy(arr, bytes.data(), bytes.size() * sizeof(uint8_t));
-    ssize_t written_byte = write(m_fd, arr, bytes.size());
-
+    ssize_t written_byte = write(m_fd, bytes.data(), bytes.size());
     if (m_verbose) {
-            std::cout << "SENT: ";
-            print_vec(bytes);
-        }
+        std::cout << "[SERIAL] SENT: " << std::endl;
+        print_vec(bytes);
+    }
     return written_byte;
 }

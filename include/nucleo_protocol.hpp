@@ -15,7 +15,7 @@
 #include "serial.hpp"
 
 #define MAX_RETRY 5
-#define TIME_BETWEEN 50 // ms
+#define TIME_BETWEEN 10 // ms
 
 
 class Protocol {
@@ -23,7 +23,6 @@ class Protocol {
         // Constructor
         Protocol(uint8_t version, uint8_t sub_version, uint8_t address, int baudrate , bool verbose = false);
         ~Protocol();
-
 
         // Methods
         bool is_connected();
@@ -54,8 +53,13 @@ class Protocol {
         uint8_t m_version;
         uint8_t m_sub_version;
         std::unordered_map<uint8_t, packet_t> m_buffer;
+        bool m_verbose;
 
+        void handle_packet_presentation(std::vector<uint8_t> &packet, std::vector<uint8_t> &entries);
+        bool handle_buffer(std::vector<uint8_t> &packet, std::vector<uint8_t> &entries);
+        void filter_latest(std::vector<std::vector<uint8_t>> &packets);
 };
 
 
 #endif // NUCLEO_PROCOL_H
+

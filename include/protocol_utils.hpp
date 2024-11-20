@@ -23,9 +23,6 @@
 #define INIT_SEQ 0xFF
 #define RESERVED_BUFFER_ENTRY 0xDE
 
-
-
-
 static const uint8_t start_bytes[NUM_SEQ] = { INIT_SEQ, COMM_SEQ, HB_SEQ, SENS_SEQ };
 static const uint8_t bytes_to_escape[NUM_SEQ + 2] = { INIT_SEQ, COMM_SEQ, HB_SEQ, SENS_SEQ, END_SEQ, ESCAPE_CHAR };
 
