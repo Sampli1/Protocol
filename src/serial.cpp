@@ -37,8 +37,11 @@ int Serial::connect_serial() {
             }
         }
     }
-        
+
+    m_fd = open(m_device.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
+
     tcflush(m_fd, TCIOFLUSH);
+    
     
     return m_connected;
 }
@@ -63,9 +66,9 @@ std::string Serial::get_device() {
     return m_device;    
 }
 
+#include <sys/stat.h>
 bool Serial::check_connection() {
-    m_fd = open(get_device().c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
-    return m_fd != -1;
+    return access(m_device.c_str(), F_OK) == 0;
 }
 
 void Serial::disconnect_serial() {
@@ -77,40 +80,48 @@ void print_vec(std::vector<uint8_t> val) {
     std::cout << std::dec << std::endl;
 }
 
+#define MAX_PACKETS 100
+#define MAX_PACKET_SIZE 256
 
 // This function get ALL the packets in the buffer
 std::vector<std::vector<uint8_t>> Serial::get_byte_vectors(uint8_t terminal, uint8_t escape) {
     if (!check_connection()) return {};
-    
-    std::vector<std::vector<uint8_t>> msg = {{}};
+    uint8_t buffer[MAX_PACKETS][MAX_PACKET_SIZE] = {};
+    size_t packet_lengths[MAX_PACKETS] = {};
+    size_t packet_count = 0;
 
-    int i = 0;    
-    while (serialDataAvail(m_fd) > 0) {
+    while (serialDataAvail(m_fd) > 0 && packet_count < MAX_PACKETS) {
         uint8_t z = serialGetchar(m_fd);
-        msg[i].push_back(z);
+        if (packet_lengths[packet_count] < MAX_PACKET_SIZE) {
+            buffer[packet_count][packet_lengths[packet_count]++] = z;
+        }
         
         if (z == terminal) {
-            if (msg[i].size() == 1) {
-                i++;
-                msg.push_back({});
-            }
-            else if (msg[i][msg[i].size() - 2] != escape) {
-                i++;
-                msg.push_back({});
+            if (packet_lengths[packet_count] == 1 || 
+                buffer[packet_count][packet_lengths[packet_count] - 2] != escape) {
+                if (++packet_count < MAX_PACKETS) {
+                    packet_lengths[packet_count] = 0;
+                }
             }
         }
     }
-    
-    // Remove empty vectors
-    msg.erase(std::remove_if(msg.begin(), msg.end(), [](const std::vector<uint8_t>& vec) { return vec.empty(); }), msg.end());
+
+    std::vector<std::vector<uint8_t>> msg;
+    for (size_t i = 0; i <= packet_count; ++i) {
+        if (packet_lengths[i] > 0) {
+            msg.emplace_back(buffer[i], buffer[i] + packet_lengths[i]);
+        }
+    }
 
     if (m_verbose) {
         std::cout << "[SERIAL] RECEIVED " << msg.size() << " PACKETS" << std::endl;
-        for (int i = 0; i < msg.size(); i++) print_vec(msg[i]);
+        
+        for (size_t i = 0; i < msg.size(); i++) print_vec(msg[i]);
     }
 
-    return msg; 
+    return msg;
 }
+
 
 ssize_t Serial::send_byte_array(std::vector<uint8_t> bytes) {
     ssize_t written_byte = write(m_fd, bytes.data(), bytes.size());

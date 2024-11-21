@@ -58,8 +58,8 @@ Must:
 | Byte  | Content           | Description                               |
 |-------|-------------------|-------------------------------------------|
 | `0xAA`| Code              | Communication code                       |
-| `0x00`| Command           | See list below |
 | `0x00`| Address           |    In case of multiple Nucleo|
+| `0x00`| Command           | See list below |
 | | Arguments (dynamic)| Arguments, variable based on command     |
 | | CRC-8    |   See [CRC-8 calculation rules]()                  |
 | `0xEE`| End of packet     |                                           |

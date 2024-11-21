@@ -125,10 +125,12 @@ COMM_STATUS Protocol::init(uint8_t interval, uint8_t max_retries, uint8_t time_b
     packet.push_back(calculate_CRC_8(packet));
     packet.push_back(END_SEQ); 
  
+    
     ssize_t written_bytes = m_serial.send_byte_array(packet);
     
+    std::cout << "ni";
     if (written_bytes == -1) return COMM_STATUS::SERIAL_NOT_ESTABLISHED;    
-
+    std::cout << "gga";
 
     size_t retry = 0;
     keys_t available_keys = update_buffer();
@@ -152,7 +154,7 @@ COMM_STATUS Protocol::init(uint8_t interval, uint8_t max_retries, uint8_t time_b
 ssize_t Protocol::send_packet(uint8_t command, uint16_t *packet_array, size_t packet_array_length) {
     if (!m_serial.check_connection()) return -1;
     
-    std::vector<uint8_t> packet = {COMM_SEQ, command, m_address};
+    std::vector<uint8_t> packet = {COMM_SEQ, m_address, command};
 
     // Transform uint16_t -> 2 uint8_t
     for (int i = 0; i < packet_array_length; i++) {

@@ -25,7 +25,7 @@ void handle_disconnection(Protocol &p) {
 }
 
 
-int main() {
+int main(int argc, char **argv) {
     // Init variables
     Protocol p(VERSION, SUB_VERSION, 0x01, BAUDRATE, false);
     uint16_t p_motor[8] = { 0xEEEE, 0x2230, 0xffff, 0xaabb, 0xdead, 0xbeef, 0xaabb, 0x7E7E };
@@ -41,7 +41,12 @@ int main() {
     uint8_t flood_type = SENSOR_TYPE::FLOOD;
 
 
+    for (int i = 0; i < argc; i++) {
+        std::cout << argv[i] << std::endl;
+    }
+
     // INIT 
+
     while (p.init(0x00) != COMM_STATUS::OK) {
         p.connect();
         std::cout << "INIT FAILED" << std::endl;
@@ -87,7 +92,13 @@ int main() {
         if (sensor_2.first == COMM_STATUS::OK) print_vec_(sensor_2.second.value());
         else std::cout << "PROTOCOL ERROR CODE 0x" << sensor_2.first << std::endl;
         
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+
+
+        if (argc > 1 && std::strcmp(argv[1], "profile") == 0) {
+            if (i % 200 == 0) std::cout << "PROFILE [" << i++ << "/5] TO END" << std::endl;
+            if (i == 1000) break;
+        }
     }
 
     return 0;    
