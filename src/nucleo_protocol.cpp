@@ -84,13 +84,18 @@ void Protocol::filter_latest(std::vector<std::vector<uint8_t>> &packets) {
     if (packets.size() == 0) return;
     
     std::vector<uint8_t> entries = {};
-    int end = 0;
+int end = 0;
 
     // Rebuild first packet (These lines are important in the unlucky case of 2 or more incomplete packet in stream)
     if (m_buffer.find(RESERVED_BUFFER_ENTRY) != m_buffer.end()) {
         for (int i = 0; i < packets.size(); i++) {
-            if (handle_buffer(packets[end++], entries) || m_buffer[RESERVED_BUFFER_ENTRY].second.value().size() > 20) {
-                std::cout << "ERASED" << std::endl;
+            // Try to rebuild first packet: if happens break
+            if (handle_buffer(packets[end++], entries)) break;
+
+            // Too many entries in the buffer? Packet loss (or inadeguate reconstruction algorithm)!!!
+            if (m_buffer.find(RESERVED_BUFFER_ENTRY) != m_buffer.end() && m_buffer[RESERVED_BUFFER_ENTRY].second.value().size() > 20) {
+                std::cout << "ERASED:" << std::endl;
+                print_vec__(m_buffer[RESERVED_BUFFER_ENTRY].second.value());
                 m_buffer.erase(RESERVED_BUFFER_ENTRY);
                 break;        
             }
@@ -128,9 +133,7 @@ COMM_STATUS Protocol::init(uint8_t interval, uint8_t max_retries, uint8_t time_b
     
     ssize_t written_bytes = m_serial.send_byte_array(packet);
     
-    std::cout << "ni";
     if (written_bytes == -1) return COMM_STATUS::SERIAL_NOT_ESTABLISHED;    
-    std::cout << "gga";
 
     size_t retry = 0;
     keys_t available_keys = update_buffer();
@@ -191,7 +194,7 @@ packet_t Protocol::get_packet(uint8_t start_byte, uint8_t end_byte) {
 
 keys_t Protocol::update_buffer() { 
     std::vector<std::vector<uint8_t>> packets = m_serial.get_byte_vectors(END_SEQ, ESCAPE_CHAR);
-
+    
     filter_latest(packets);
 
     return get_keys(m_buffer);

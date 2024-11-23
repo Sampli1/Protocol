@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.0)
 project(DemoProtocol)
 
-find_library(wiringPi_LIB wiringPi)
+set(CMAKE_C_COMPILER "/usr/bin/gcc")
+set(CMAKE_CXX_COMPILER "/usr/bin/g++")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-set(CMAKE_CXX_FLAGS "-O3")
 
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
@@ -13,8 +13,8 @@ add_library(UTILS src/protocol_utils.cpp)
 add_library(SER src/serial.cpp)
 add_library(NP src/nucleo_protocol.cpp)
 
+
 add_executable(myapp src/main.cpp)
 
-target_link_libraries(SER ${wiringPi_LIB})
 target_link_libraries(NP SER UTILS)
-target_link_libraries(myapp SER ${wiringPi_LIB} NP UTILS)
+target_link_libraries(myapp SER NP UTILS)

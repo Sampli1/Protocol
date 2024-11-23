@@ -15,7 +15,7 @@ void print_vec_(std::vector<uint8_t> val) {
 void handle_disconnection(Protocol &p) {
     if (!p.is_connected()) {
         p.connect();
-        while (p.init(0x00, 100, 100) != COMM_STATUS::OK) {
+        while (p.init(0x00) != COMM_STATUS::OK) {
             std::cout << "INIT FAILED" << std::endl;
             p.connect();
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
         std::cout << argv[i] << std::endl;
     }
 
-    // INIT 
+    // INIT
 
     while (p.init(0x00) != COMM_STATUS::OK) {
         p.connect();
@@ -69,7 +69,6 @@ int main(int argc, char **argv) {
         handle_disconnection(p);
         p.update_buffer();
 
-
         // Send motor data 
         p.send_packet(COMM_TYPE::MOTOR, p_motor, 8);
         p.send_packet(COMM_TYPE::ARM, p_arm, 1);
@@ -92,7 +91,7 @@ int main(int argc, char **argv) {
         if (sensor_2.first == COMM_STATUS::OK) print_vec_(sensor_2.second.value());
         else std::cout << "PROTOCOL ERROR CODE 0x" << sensor_2.first << std::endl;
         
-        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 
         if (argc > 1 && std::strcmp(argv[1], "profile") == 0) {
