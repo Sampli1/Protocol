@@ -3,6 +3,7 @@
 
 
 #include <chrono>
+#include <iostream>
 #include <cstdint>
 #include <thread>
 #include <chrono>
@@ -70,7 +71,7 @@ typedef std::vector<uint8_t> keys_t;
 
 uint8_t calculate_CRC_8(const std::vector<uint8_t>& data);
 
-uint8_t verify_response_CRC_8(const std::vector<uint8_t>& res);
+COMM_STATUS verify_response_CRC_8(const std::vector<uint8_t>& res);
 
 void add_escape_char(std::vector<uint8_t>& vec);
 
@@ -79,5 +80,7 @@ void remove_escape_char(std::vector<uint8_t>& input);
 keys_t get_keys(std::unordered_map<uint8_t, packet_t> buffer);
 
 bool is_valid_packet(std::vector<uint8_t> packet);
+
+void remove_reserved_key(bool verbose, std::string content, std::unordered_map<uint8_t, packet_t> &buffer);
 
 #endif // PROTOCOL_UTILS_H

@@ -2,8 +2,10 @@
 #include <iostream>
 #include "nucleo_protocol.hpp"
 
+#define ADDRESS 0x01
 #define VERSION 0x01
 #define SUB_VERSION 0x01
+#define INTERVAL_KEY 0x00
 #define BAUDRATE 115200
 
 
@@ -12,10 +14,12 @@ void print_vec_(std::vector<uint8_t> val) {
     std::cout << std::dec << std::endl;
 }
 
+
+// Function which handles disconnection
 void handle_disconnection(Protocol &p) {
     if (!p.is_connected()) {
         p.connect();
-        while (p.init(0x00) != COMM_STATUS::OK) {
+        while (p.init(INTERVAL_KEY) != COMM_STATUS::OK) {
             std::cout << "INIT FAILED" << std::endl;
             p.connect();
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -27,9 +31,12 @@ void handle_disconnection(Protocol &p) {
 
 int main(int argc, char **argv) {
     // Init variables
-    Protocol p(VERSION, SUB_VERSION, 0x01, BAUDRATE, false);
+    Protocol p(ADDRESS, VERSION, SUB_VERSION, BAUDRATE, true);
     uint16_t p_motor[8] = { 0xEEEE, 0x2230, 0xffff, 0xaabb, 0xdead, 0xbeef, 0xaabb, 0x7E7E };
     uint16_t p_arm[1] = { 0xEEEE };
+    
+    // Sensors environment
+
     uint8_t temperature_id = 0;
     uint8_t temperature_i2c_addr = 0x22;
     uint8_t temperature_int = 0;
@@ -40,14 +47,9 @@ int main(int argc, char **argv) {
     uint8_t flood_int = 0;
     uint8_t flood_type = SENSOR_TYPE::FLOOD;
 
-
-    for (int i = 0; i < argc; i++) {
-        std::cout << argv[i] << std::endl;
-    }
-
     // INIT
 
-    while (p.init(0x00) != COMM_STATUS::OK) {
+    while (p.init(INTERVAL_KEY) != COMM_STATUS::OK) {
         p.connect();
         std::cout << "INIT FAILED" << std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -70,8 +72,8 @@ int main(int argc, char **argv) {
         p.update_buffer();
 
         // Send motor data 
-        p.send_packet(COMM_TYPE::MOTOR, p_motor, 8);
-        p.send_packet(COMM_TYPE::ARM, p_arm, 1);
+        // p.send_packet(COMM_TYPE::MOTOR, p_motor, 8);
+        // p.send_packet(COMM_TYPE::ARM, p_arm, 1);
         
 
         // Read packet
@@ -93,11 +95,12 @@ int main(int argc, char **argv) {
         
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-
+        
         if (argc > 1 && std::strcmp(argv[1], "profile") == 0) {
-            if (i % 200 == 0) std::cout << "PROFILE [" << i++ << "/5] TO END" << std::endl;
+            if (i % 200 == 0) std::cout << "PROFILE [" << i << "/5] TO END" << std::endl;
             if (i == 1000) break;
         }
+        i++;
     }
 
     return 0;    

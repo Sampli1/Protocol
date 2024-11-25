@@ -20,8 +20,8 @@
 
 class Protocol {
     public:
-        // Constructor
-        Protocol(uint8_t version, uint8_t sub_version, uint8_t address, int baudrate , bool verbose = false);
+        // Constructor & Deconstructor
+        Protocol(uint8_t address, uint8_t version, uint8_t sub_version, int baudrate, bool verbose = false);
         ~Protocol();
 
         // Methods
@@ -55,9 +55,11 @@ class Protocol {
         std::unordered_map<uint8_t, packet_t> m_buffer;
         bool m_verbose;
 
-        void handle_packet_presentation(std::vector<uint8_t> &packet, std::vector<uint8_t> &entries);
-        bool handle_buffer(std::vector<uint8_t> &packet, std::vector<uint8_t> &entries);
-        void filter_latest(std::vector<std::vector<uint8_t>> &packets);
+        void decode_packet(std::vector<uint8_t> &packet, std::vector<uint8_t> &keys);
+
+        bool handle_buffer_reconstruction(std::vector<uint8_t> &packet, std::vector<uint8_t> &keys);
+        
+        void handle_packet_stream(std::vector<std::vector<uint8_t>> &packets);
 };
 
 

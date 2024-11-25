@@ -1,9 +1,5 @@
 #include "nucleo_protocol.hpp"
 
-void print_vec__(std::vector<uint8_t> val) {
-    for (int i = 0; i < val.size(); i++) std::cout << std::hex << static_cast<int>(val[i]) << " ";
-    std::cout << std::dec << std::endl;
-}
 // Constructor
 
 Protocol::Protocol(uint8_t version, uint8_t sub_version, uint8_t address, int baudrate, bool verbose) {
@@ -19,96 +15,103 @@ Protocol::Protocol(uint8_t version, uint8_t sub_version, uint8_t address, int ba
 }
 
 
-void Protocol::handle_packet_presentation(std::vector<uint8_t> &packet, std::vector<uint8_t> &entries) {
-    uint8_t entry, start_index, end_index;
+void Protocol::decode_packet(std::vector<uint8_t> &packet, std::vector<uint8_t> &keys) {
+    uint8_t key, start_index, end_index;
+    
     // Purify packet
     remove_escape_char(packet);
-    // Decide presentation according to packet
+    
+    // Decoding according to protocol rules
     switch (packet[0]) {
         case INIT_SEQ:
-            entry = packet[0];
+            key = packet[0];
             start_index = 0;
             break;
         case COMM_SEQ:
-            if (packet.size() < 5) return; // NEED A WAY 
-            entry = packet[3]; 
+            if (packet.size() < 5) return;
+            key = packet[3]; 
             start_index = 3;
             break;
         case HB_SEQ:
-            entry = packet[0];
+            key = packet[0];
             start_index = 2;
             break;
     }
     end_index = packet.size() - 2;
     
     // Is in the map already?
-    if (std::find(entries.begin(), entries.end(), entry) != entries.end()) return; 
-    entries.push_back(entry);
+    if (std::find(keys.begin(), keys.end(), key) != keys.end()) return;
+    keys.push_back(key);
 
-    if (m_verbose) {
-        std::cout << "[CHIMPANZEE] COLLECT -> " << std::hex << static_cast<int>(entry) << std::dec << std::endl;
-    }
+    if (m_verbose) std::cout << "[CHIMPANZEE] COLLECT -> " << std::hex << static_cast<int>(key) << std::dec << std::endl;
 
     // Is CRC 8 correct?
-    if (verify_response_CRC_8(packet) != COMM_STATUS::OK) m_buffer[entry] = { COMM_STATUS::CRC_FAILED, std::nullopt };
+    if (verify_response_CRC_8(packet) != COMM_STATUS::OK) m_buffer[key] = { COMM_STATUS::CRC_FAILED, std::nullopt };
 
     // THE PACKET IS READY
     std::vector<uint8_t> slice(packet.begin() + start_index, packet.begin() + end_index);
 
-    m_buffer[entry] = { COMM_STATUS::OK, slice }; 
+    m_buffer[key] = { COMM_STATUS::OK, slice }; 
 }
 
-bool Protocol::handle_buffer(std::vector<uint8_t> &packet, std::vector<uint8_t> &entries) {
+
+bool Protocol::handle_buffer_reconstruction(std::vector<uint8_t> &packet, std::vector<uint8_t> &keys) {
     // Is the buffer empty?
     if (m_buffer.find(RESERVED_BUFFER_ENTRY) == m_buffer.end()) {
         m_buffer[RESERVED_BUFFER_ENTRY] = {COMM_STATUS::OK, packet};
         return false;
     }
+
     // Update the buffer and check validity
     std::vector<uint8_t> buffer_entry = m_buffer[RESERVED_BUFFER_ENTRY].second.value();
     buffer_entry.insert(buffer_entry.end(), packet.begin(), packet.end());
     if (is_valid_packet(buffer_entry)) {
-        if (m_verbose) {
-            std::cout << "REBUILD" << std::endl;
-            print_vec__(buffer_entry);
-        }
-        m_buffer.erase(RESERVED_BUFFER_ENTRY);
-        handle_packet_presentation(buffer_entry, entries);
+        m_buffer[RESERVED_BUFFER_ENTRY] = {COMM_STATUS::OK, buffer_entry};
+        remove_reserved_key(m_verbose, "REBUILT: ", m_buffer);
+        decode_packet(buffer_entry, keys);
         return true;
     } 
     m_buffer[RESERVED_BUFFER_ENTRY] = {COMM_STATUS::OK, buffer_entry};
     return false;    
 }
 
-void Protocol::filter_latest(std::vector<std::vector<uint8_t>> &packets) {
+void Protocol::handle_packet_stream(std::vector<std::vector<uint8_t>> &packets) {
     if (packets.size() == 0) return;
     
-    std::vector<uint8_t> entries = {};
-int end = 0;
+    std::vector<uint8_t> keys = {};
+    int end = 0;
 
-    // Rebuild first packet (These lines are important in the unlucky case of 2 or more incomplete packet in stream)
+    // FROM INDEX 0 -> END, HERE WE TRY TO REBUILD THE BUFFER
+
+    // Rebuild first packets (These lines are important in the unlucky case of 2 or more incomplete packet in stream)
     if (m_buffer.find(RESERVED_BUFFER_ENTRY) != m_buffer.end()) {
-        for (int i = 0; i < packets.size(); i++) {
-            // Try to rebuild first packet: if happens break
-            if (handle_buffer(packets[end++], entries)) break;
+        for (end = 0; end < packets.size(); end++) {
+            // If the packet is correct, stop searching for a match, erase buffer
+            if (is_valid_packet(packets[end])) {
+                remove_reserved_key(m_verbose, "ERASED: ", m_buffer);
+                break;
+            }
 
-            // Too many entries in the buffer? Packet loss (or inadeguate reconstruction algorithm)!!!
-            if (m_buffer.find(RESERVED_BUFFER_ENTRY) != m_buffer.end() && m_buffer[RESERVED_BUFFER_ENTRY].second.value().size() > 20) {
-                std::cout << "ERASED:" << std::endl;
-                print_vec__(m_buffer[RESERVED_BUFFER_ENTRY].second.value());
-                m_buffer.erase(RESERVED_BUFFER_ENTRY);
+            // Try to rebuild first packet: TOP -> DOWN => if happens break
+            if (handle_buffer_reconstruction(packets[end], keys)) break;
+
+
+            // Too many keys in the buffer? Packet loss (or inadeguate reconstruction algorithm)!!!
+            if (m_buffer[RESERVED_BUFFER_ENTRY].second.value().size() > 10) {
+                remove_reserved_key(m_verbose, "ERASED: ", m_buffer); 
                 break;        
             }
         }
     }
 
-    entries = {}; 
+    // We reset the keys vector, because there may be newest packet in the buffer
+    keys = {};     
 
-    // End index to avoid to reconsider the first incomplete packets
-    for (int i = packets.size() - 1; i >= end; i--) {
-        if (is_valid_packet(packets[i])) handle_packet_presentation(packets[i], entries);
-        else handle_buffer(packets[i], entries);
-    }   
+    // Last element is complete? If not put in buffer
+    if (!is_valid_packet(packets[packets.size() - 1])) handle_buffer_reconstruction(packets[packets.size() - 1], keys);
+
+    // READ PACKETs FINALLY
+    for (int i = packets.size() - 1; i >= end; i--) if (is_valid_packet(packets[i])) decode_packet(packets[i], keys);
 }
 
 // Public functions
@@ -137,6 +140,7 @@ COMM_STATUS Protocol::init(uint8_t interval, uint8_t max_retries, uint8_t time_b
 
     size_t retry = 0;
     keys_t available_keys = update_buffer();
+
     while (std::find(available_keys.begin(), available_keys.end(), INIT_SEQ) == available_keys.end() && retry < max_retries) {
         std::this_thread::sleep_for(std::chrono::milliseconds(time_between_retries));
         available_keys = update_buffer();
@@ -195,7 +199,7 @@ packet_t Protocol::get_packet(uint8_t start_byte, uint8_t end_byte) {
 keys_t Protocol::update_buffer() { 
     std::vector<std::vector<uint8_t>> packets = m_serial.get_byte_vectors(END_SEQ, ESCAPE_CHAR);
     
-    filter_latest(packets);
+    handle_packet_stream(packets);
 
     return get_keys(m_buffer);
 }

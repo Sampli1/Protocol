@@ -2,6 +2,11 @@
 
 // Utils -> Private
 
+void print_vec(std::vector<uint8_t> val) {
+    for (int i = 0; i < val.size(); i++) std::cout << std::hex << static_cast<int>(val[i]) << " ";
+    std::cout << std::dec << std::endl;
+}
+
 uint8_t calculate_CRC_8(const std::vector<uint8_t>& data) {
     uint8_t crc = 0x00;
     uint8_t polynomial = 0x07; 
@@ -15,7 +20,7 @@ uint8_t calculate_CRC_8(const std::vector<uint8_t>& data) {
     return crc;
 }
 
-uint8_t verify_response_CRC_8(const std::vector<uint8_t>& res) {
+COMM_STATUS verify_response_CRC_8(const std::vector<uint8_t>& res) {
     uint8_t res_crc = res[res.size() - 2];
 
     std::vector<uint8_t> res_to_verify;
@@ -69,4 +74,12 @@ bool is_valid_packet(std::vector<uint8_t> packet) {
     && (packet[dim - 1] == END_SEQ // Ends with END_SEQ?
     && (packet[dim - 2] != ESCAPE_CHAR // Is there ESCAPE_CHAR?
     || (packet[dim - 2] == ESCAPE_CHAR && packet[dim - 3] == ESCAPE_CHAR))); // There is no ESCAPING SEQUENCE?
+}
+
+void remove_reserved_key(bool verbose, std::string content, std::unordered_map<uint8_t, packet_t> &buffer) {
+    if (verbose) {
+        std::cout << content << std::endl;
+        print_vec(buffer[RESERVED_BUFFER_ENTRY].second.value());
+    }
+    buffer.erase(RESERVED_BUFFER_ENTRY); 
 }

@@ -10,7 +10,7 @@
 #include <sys/stat.h>
 
 
-#define MAX_PACKETS 50
+#define MAX_PACKETS 100
 #define MAX_PACKET_SIZE 256
 
 
@@ -110,8 +110,6 @@ int serialOpen (const char *device, const int baud)
 }
 
 
-
-
 int Serial::connect_serial() {
     std::string serial_interface;
     int max_tries = 10;
@@ -167,7 +165,7 @@ void Serial::disconnect_serial() {
     close(m_fd);
 }
 
-void print_vec(std::vector<uint8_t> val) {
+void print_vec__(std::vector<uint8_t> val) {
     for (int i = 0; i < val.size(); i++) std::cout << "  " << std::hex << static_cast<int>(val[i]) << " ";
     std::cout << std::dec << std::endl;
 }
@@ -182,7 +180,7 @@ std::vector<std::vector<uint8_t>> Serial::get_byte_vectors(uint8_t terminal, uin
 
     uint8_t z;
 
-    while (packet_count < MAX_PACKETS && read(m_fd, &z, 1) > 0) { 
+    while (packet_count < MAX_PACKETS - 1 && read(m_fd, &z, 1) > 0) { 
         if (packet_lengths[packet_count] < MAX_PACKET_SIZE) {
             buffer[packet_count][packet_lengths[packet_count]++] = z;
         }
@@ -197,8 +195,11 @@ std::vector<std::vector<uint8_t>> Serial::get_byte_vectors(uint8_t terminal, uin
         }
     }
 
+    // EDGE CASES
     if (packet_count == 0 && packet_lengths[0] == 0) packet_count = -1;
     if (packet_lengths[packet_count] == 0) packet_count -= 1;
+
+    if (packet_count == MAX_PACKETS - 2) std::cerr << "\033[31m" << "[SERIAL] WARNING: CONSIDER TO ACCELERATE BUFFER UPDATING => MAX PACKETs REACHED => OLD PACKET READ" << "\033[0m" << std::endl;
 
     std::vector<std::vector<uint8_t>> msg;
 
@@ -208,7 +209,7 @@ std::vector<std::vector<uint8_t>> Serial::get_byte_vectors(uint8_t terminal, uin
 
     if (m_verbose) {
         std::cout << "[SERIAL] RECEIVED " << msg.size() << " PACKETS" << std::endl;   
-        for (size_t i = 0; i < msg.size(); i++) print_vec(msg[i]);
+        for (size_t i = 0; i < msg.size(); i++) print_vec__(msg[i]);
     }
 
     return msg;
@@ -219,7 +220,7 @@ ssize_t Serial::send_byte_array(std::vector<uint8_t> bytes) {
     ssize_t written_byte = write(m_fd, bytes.data(), bytes.size());
     if (m_verbose) {
         std::cout << "[SERIAL] SENT: " << std::endl;
-        print_vec(bytes);
+        print_vec__(bytes);
     }
     return written_byte;
 }
