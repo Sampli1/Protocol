@@ -1,3 +1,4 @@
+
 #include <Arduino.h>
 
 #define INIT_CODE 0xFF
@@ -9,7 +10,7 @@
 #define THRUSTERS_FAIL 0x20
 
 bool inited = false;
-uint8_t address = 0x01;     // Indirizzo Nucleo
+uint8_t address = 0x00;     // Indirizzo Nucleo
 uint8_t version = 0x01;     // Versione
 uint8_t subVersion = 0x01;  // Sub-versione
 
@@ -50,14 +51,14 @@ void sendInitResponse(uint8_t responseCode) {
 #define SENSOR3_CODE 0x02
 #define END_CODE_SENSOR 0xEE
 #define ESCAPE_CHAR 0x7E
-#define MAX_PACKET_SIZE 10
+#define MAX_PACKET_SIZE 20
 
 void sendPacketWithEscape(uint8_t* packet, size_t length) {
     uint8_t escapedPacket[MAX_PACKET_SIZE];
     size_t escapedLength = 0;
 
     for (size_t i = 0; i < length - 1; i++) {
-        if (packet[i] == 0xEE) {
+        if (packet[i] == 0xEE || packet[i] == 0x7E) {
             escapedPacket[escapedLength++] = ESCAPE_CHAR;
         }
         escapedPacket[escapedLength++] = packet[i];
@@ -140,25 +141,25 @@ void sensorTask(void* parameter) {
     static unsigned long lastSensor3 = 0;
 
     while (1) {
-        if (millis() - lastSensor1 >= 6 && inited) {
+        if (millis() - lastSensor1 >= 1 && inited) {
             lastSensor1 = millis();
             uint16_t sensor1Value = random(0, 1024);
             sendSensorData(SENSOR1_CODE, sensor1Value);
         }
 
-        if (millis() - lastSensor2 >= 5 && inited) {
+        if (millis() - lastSensor2 >= 2 && inited) {
             lastSensor2 = millis();
             uint16_t sensor2Value = random(0, 1024);
             sendSensorData(SENSOR2_CODE, sensor2Value);
         }
 
-        if (millis() - lastSensor3 >= 7 && inited) {
+        if (millis() - lastSensor3 >= 3 && inited) {
             lastSensor3 = millis();
             uint16_t sensor3Value = random(0, 1024);
             sendSensorData(SENSOR3_CODE, sensor3Value);
         }
 
-        vTaskDelay(100 / portTICK_PERIOD_MS);  // Riprova ogni 100ms
+        vTaskDelay(10 / portTICK_PERIOD_MS);  // Riprova ogni 100ms
     }
 }
 

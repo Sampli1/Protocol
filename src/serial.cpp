@@ -119,14 +119,17 @@ int Serial::connect_serial() {
     // Try to connect to different serial interfaces
     for (const std::string serial_prefix: serial_prefixes) {
         for (int i = 0; i < max_tries; i++) {
+            
             serial_interface = serial_prefix + std::to_string(i);
             m_fd = serialOpen(serial_interface.c_str(), m_baudrate);
-            if (m_fd != -1) { 
-                set_device(serial_interface);
+            if (m_fd > -1) { 
+
+                m_device = serial_interface;
                 std::cout << "[SERIAL] " << "Connected to: " << serial_interface << std::endl;                
                 tcflush(m_fd, TCIOFLUSH);
                 m_connected = true;
                 return true;
+
             }
         }
     }
@@ -177,22 +180,27 @@ std::vector<std::vector<uint8_t>> Serial::get_byte_vectors(uint8_t terminal, uin
     size_t packet_lengths[MAX_PACKETS] = { 0 };
     ssize_t packet_count = 0;
     ssize_t bytes_read = 0;
-
     uint8_t z;
+    bool esc_mode = false;
 
     while (packet_count < MAX_PACKETS - 1 && read(m_fd, &z, 1) > 0) { 
+        if (z == escape && !esc_mode) {
+            esc_mode = true;
+            continue;
+        }
+
         if (packet_lengths[packet_count] < MAX_PACKET_SIZE) {
             buffer[packet_count][packet_lengths[packet_count]++] = z;
         }
         else break;
 
-        if (z == terminal) {
-            if (packet_lengths[packet_count] == 1 || buffer[packet_count][packet_lengths[packet_count] - 2] != escape) {
-                if ((++packet_count) < MAX_PACKETS) {
-                    packet_lengths[packet_count] = 0;
-                }
+        if (z == terminal && !esc_mode) {
+            if ((++packet_count) < MAX_PACKETS) {
+                packet_lengths[packet_count] = 0;
             }
         }
+
+        if (esc_mode) esc_mode = false;
     }
 
     // EDGE CASES

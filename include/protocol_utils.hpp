@@ -22,7 +22,7 @@
 #define HB_SEQ 0xBB
 #define SENS_SEQ 0xCC
 #define INIT_SEQ 0xFF
-#define RESERVED_BUFFER_ENTRY 0xDE
+#define RESERVED_BUFFER_KEY 0xDE
 
 static const uint8_t start_bytes[NUM_SEQ] = { INIT_SEQ, COMM_SEQ, HB_SEQ, SENS_SEQ };
 static const uint8_t bytes_to_escape[NUM_SEQ + 2] = { INIT_SEQ, COMM_SEQ, HB_SEQ, SENS_SEQ, END_SEQ, ESCAPE_CHAR };
@@ -67,6 +67,21 @@ enum SENSOR_TYPE {
 typedef std::pair<COMM_STATUS, std::optional<std::vector<uint8_t>>> packet_t;
 
 typedef std::vector<uint8_t> keys_t;
+
+typedef struct {
+    uint8_t id;
+    uint8_t i2c_address;
+    uint8_t interval_key;
+    SENSOR_TYPE type;
+} sensor_config_t;
+
+typedef struct {
+    uint8_t address; 
+    uint8_t version; 
+    uint8_t sub_version; 
+    int baudrate; 
+    bool verbose;
+} protocol_config_t;
 
 
 uint8_t calculate_CRC_8(const std::vector<uint8_t>& data);

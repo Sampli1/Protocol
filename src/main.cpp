@@ -2,7 +2,7 @@
 #include <iostream>
 #include "nucleo_protocol.hpp"
 
-#define ADDRESS 0x01
+#define ADDRESS 0x00
 #define VERSION 0x01
 #define SUB_VERSION 0x01
 #define INTERVAL_KEY 0x00
@@ -31,21 +31,36 @@ void handle_disconnection(Protocol &p) {
 
 int main(int argc, char **argv) {
     // Init variables
-    Protocol p(ADDRESS, VERSION, SUB_VERSION, BAUDRATE, true);
+
+    protocol_config_t chimpanzee_config {
+        .address = ADDRESS,
+        .version = VERSION,
+        .sub_version = SUB_VERSION,
+        .baudrate = BAUDRATE,
+        .verbose = true,
+    };
+
+    Protocol p(VERSION, SUB_VERSION, ADDRESS, BAUDRATE, true); // -> Is going to be deprecated
+    // Protocol p(chimpanzee_config);
+
     uint16_t p_motor[8] = { 0xEEEE, 0x2230, 0xffff, 0xaabb, 0xdead, 0xbeef, 0xaabb, 0x7E7E };
     uint16_t p_arm[1] = { 0xEEEE };
     
     // Sensors environment
 
-    uint8_t temperature_id = 0;
-    uint8_t temperature_i2c_addr = 0x22;
-    uint8_t temperature_int = 0;
-    uint8_t temperature_type = SENSOR_TYPE::TEMPERATURE;
-    
-    uint8_t flood_id = 1;
-    uint8_t flood_i2c_addr = 0x30;
-    uint8_t flood_int = 0;
-    uint8_t flood_type = SENSOR_TYPE::FLOOD;
+    sensor_config_t temperature {
+        .id = 0x00,
+        .i2c_address = 0x22,
+        .interval_key = 0x00,
+        .type = SENSOR_TYPE::TEMPERATURE
+    };
+
+    sensor_config_t flood {
+        .id = 0x01,
+        .i2c_address = 0x30,
+        .interval_key = 0x00,
+        .type = SENSOR_TYPE::FLOOD
+    };
 
     // INIT
 
@@ -58,8 +73,8 @@ int main(int argc, char **argv) {
 
 
     // SET POLLING SESSION
-    p.set_sensor(temperature_id, temperature_i2c_addr, temperature_int, temperature_type);
-    p.set_sensor(flood_id, flood_i2c_addr, flood_int, flood_type);
+    p.set_sensor(temperature);
+    p.set_sensor(flood);
 
     // COMMUNICATION
     keys_t keys;
@@ -78,8 +93,8 @@ int main(int argc, char **argv) {
 
         // Read packet
         packet_t hb = p.get_heartbeat();
-        packet_t sensor_1 = p.get_sensor(temperature_id);
-        packet_t sensor_2 = p.get_sensor(flood_id);
+        packet_t sensor_1 = p.get_sensor(temperature.id);
+        packet_t sensor_2 = p.get_sensor(flood.id);
         
         std::cout << "[HB]" << std::endl;
         if (hb.first == COMM_STATUS::OK) print_vec_(hb.second.value());
@@ -94,7 +109,6 @@ int main(int argc, char **argv) {
         else std::cout << "PROTOCOL ERROR CODE 0x" << sensor_2.first << std::endl;
         
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
         
         if (argc > 1 && std::strcmp(argv[1], "profile") == 0) {
             if (i % 200 == 0) std::cout << "PROFILE [" << i << "/5] TO END" << std::endl;

@@ -49,21 +49,9 @@ void add_escape_char(std::vector<uint8_t>& vec) {
     }
 }
 
-void remove_escape_char(std::vector<uint8_t>& input) {
-    size_t write_index = 0;
-    for (size_t read_index = 0; read_index < input.size(); read_index++) {
-        if (input[read_index] == ESCAPE_CHAR && read_index + 1 < input.size()) {
-            input[write_index++] = input[++read_index];
-        } else {
-            input[write_index++] = input[read_index];
-        }
-    }
-    input.resize(write_index);
-}
-
 keys_t get_keys(std::unordered_map<uint8_t, packet_t> buffer) {
     keys_t available_keys;
-    for (auto pair : buffer) if (pair.first != RESERVED_BUFFER_ENTRY) available_keys.push_back(pair.first);
+    for (auto pair : buffer) if (pair.first != RESERVED_BUFFER_KEY) available_keys.push_back(pair.first);
     return available_keys;
 }
 
@@ -71,15 +59,13 @@ bool is_valid_packet(std::vector<uint8_t> packet) {
     size_t dim = packet.size();
     return dim > 4 // Minimum dimension (minum packet without byte stuffing)
     && std::find(start_bytes, start_bytes + NUM_SEQ, packet[0]) != start_bytes + NUM_SEQ // Is a start of packet?
-    && (packet[dim - 1] == END_SEQ // Ends with END_SEQ?
-    && (packet[dim - 2] != ESCAPE_CHAR // Is there ESCAPE_CHAR?
-    || (packet[dim - 2] == ESCAPE_CHAR && packet[dim - 3] == ESCAPE_CHAR))); // There is no ESCAPING SEQUENCE?
+    && packet[dim - 1] == END_SEQ; // Ends with END_SEQ?
 }
 
 void remove_reserved_key(bool verbose, std::string content, std::unordered_map<uint8_t, packet_t> &buffer) {
     if (verbose) {
         std::cout << content << std::endl;
-        print_vec(buffer[RESERVED_BUFFER_ENTRY].second.value());
+        print_vec(buffer[RESERVED_BUFFER_KEY].second.value());
     }
-    buffer.erase(RESERVED_BUFFER_ENTRY); 
+    buffer.erase(RESERVED_BUFFER_KEY); 
 }

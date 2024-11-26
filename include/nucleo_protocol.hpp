@@ -20,8 +20,9 @@
 
 class Protocol {
     public:
-        // Constructor & Deconstructor
+        // Constructors & Deconstructor
         Protocol(uint8_t address, uint8_t version, uint8_t sub_version, int baudrate, bool verbose = false);
+        Protocol(protocol_config_t protocol_config);
         ~Protocol();
 
         // Methods
@@ -37,7 +38,7 @@ class Protocol {
 
         packet_t get_packet(uint8_t start_byte, uint8_t end_byte = END_SEQ);
 
-        bool set_sensor(uint8_t ID, uint8_t i2c_address, uint8_t interval_entry, uint8_t type);
+        bool set_sensor(sensor_config_t sensor);
 
         packet_t get_sensor(uint8_t ID);
 

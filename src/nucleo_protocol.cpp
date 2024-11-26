@@ -14,13 +14,21 @@ Protocol::Protocol(uint8_t version, uint8_t sub_version, uint8_t address, int ba
     m_serial.connect_serial();
 }
 
+Protocol::Protocol(protocol_config_t protocol_config) {
+    m_version = protocol_config.version;
+    m_sub_version = protocol_config.sub_version;
+    m_address = protocol_config.address;
+    m_verbose = protocol_config.verbose;
+    m_buffer = {};
+
+    m_serial.set_baudrate(protocol_config.baudrate);
+    m_serial.set_verbose(protocol_config.verbose);
+    m_serial.connect_serial();
+}
 
 void Protocol::decode_packet(std::vector<uint8_t> &packet, std::vector<uint8_t> &keys) {
     uint8_t key, start_index, end_index;
-    
-    // Purify packet
-    remove_escape_char(packet);
-    
+
     // Decoding according to protocol rules
     switch (packet[0]) {
         case INIT_SEQ:
@@ -57,21 +65,21 @@ void Protocol::decode_packet(std::vector<uint8_t> &packet, std::vector<uint8_t> 
 
 bool Protocol::handle_buffer_reconstruction(std::vector<uint8_t> &packet, std::vector<uint8_t> &keys) {
     // Is the buffer empty?
-    if (m_buffer.find(RESERVED_BUFFER_ENTRY) == m_buffer.end()) {
-        m_buffer[RESERVED_BUFFER_ENTRY] = {COMM_STATUS::OK, packet};
+    if (m_buffer.find(RESERVED_BUFFER_KEY) == m_buffer.end()) {
+        m_buffer[RESERVED_BUFFER_KEY] = {COMM_STATUS::OK, packet};
         return false;
     }
 
     // Update the buffer and check validity
-    std::vector<uint8_t> buffer_entry = m_buffer[RESERVED_BUFFER_ENTRY].second.value();
+    std::vector<uint8_t> buffer_entry = m_buffer[RESERVED_BUFFER_KEY].second.value();
     buffer_entry.insert(buffer_entry.end(), packet.begin(), packet.end());
     if (is_valid_packet(buffer_entry)) {
-        m_buffer[RESERVED_BUFFER_ENTRY] = {COMM_STATUS::OK, buffer_entry};
+        m_buffer[RESERVED_BUFFER_KEY] = {COMM_STATUS::OK, buffer_entry};
         remove_reserved_key(m_verbose, "REBUILT: ", m_buffer);
         decode_packet(buffer_entry, keys);
         return true;
     } 
-    m_buffer[RESERVED_BUFFER_ENTRY] = {COMM_STATUS::OK, buffer_entry};
+    m_buffer[RESERVED_BUFFER_KEY] = {COMM_STATUS::OK, buffer_entry};
     return false;    
 }
 
@@ -84,27 +92,26 @@ void Protocol::handle_packet_stream(std::vector<std::vector<uint8_t>> &packets) 
     // FROM INDEX 0 -> END, HERE WE TRY TO REBUILD THE BUFFER
 
     // Rebuild first packets (These lines are important in the unlucky case of 2 or more incomplete packet in stream)
-    if (m_buffer.find(RESERVED_BUFFER_ENTRY) != m_buffer.end()) {
-        for (end = 0; end < packets.size(); end++) {
-            // If the packet is correct, stop searching for a match, erase buffer
-            if (is_valid_packet(packets[end])) {
-                remove_reserved_key(m_verbose, "ERASED: ", m_buffer);
-                break;
-            }
+    // If the raw_buffer is empty we have no reason to rebuild buffer from top, for this reason the first condition
+    for (end = 0; m_buffer.find(RESERVED_BUFFER_KEY) != m_buffer.end() && end < packets.size(); end++) {
+        // If the packet is correct, stop searching for a match, erase buffer
+        if (is_valid_packet(packets[end])) {
+            remove_reserved_key(m_verbose, "ERASED: ", m_buffer);
+            break;
+        }
 
-            // Try to rebuild first packet: TOP -> DOWN => if happens break
-            if (handle_buffer_reconstruction(packets[end], keys)) break;
+        // Try to rebuild first packet: TOP -> DOWN => if happens break
+        if (handle_buffer_reconstruction(packets[end], keys)) break;
 
 
-            // Too many keys in the buffer? Packet loss (or inadeguate reconstruction algorithm)!!!
-            if (m_buffer[RESERVED_BUFFER_ENTRY].second.value().size() > 10) {
-                remove_reserved_key(m_verbose, "ERASED: ", m_buffer); 
-                break;        
-            }
+        // Too many keys in the buffer? Packet loss (or inadeguate reconstruction algorithm)!!!
+        if (m_buffer[RESERVED_BUFFER_KEY].second.value().size() > 10) {
+            remove_reserved_key(m_verbose, "ERASED: ", m_buffer); 
+            break;        
         }
     }
 
-    // We reset the keys vector, because there may be newest packet in the buffer
+    // We reset the keys vector, because there may be newer packet in the buffer
     keys = {};     
 
     // Last element is complete? If not put in buffer
@@ -204,21 +211,21 @@ keys_t Protocol::update_buffer() {
     return get_keys(m_buffer);
 }
 
-bool Protocol::set_sensor(uint8_t ID, uint8_t i2c_address, uint8_t interval_entry, uint8_t type) {
-    if (ID == RESERVED_BUFFER_ENTRY) {
+bool Protocol::set_sensor(sensor_config_t sensor) {
+    if (sensor.id == RESERVED_BUFFER_KEY) {
         std::cerr << "This ID is reserved" << std::endl;
         return false;
     }
     uint16_t p_sensor[2];
 
-    p_sensor[0] = (static_cast<uint16_t>(ID) << 8) | i2c_address;
-    p_sensor[1] = (static_cast<uint16_t>(interval_entry) << 8) | type;
+    p_sensor[0] = (static_cast<uint16_t>(sensor.id) << 8) | sensor.i2c_address;
+    p_sensor[1] = (static_cast<uint16_t>(sensor.interval_key) << 8) | sensor.type;
 
     return send_packet(COMM_TYPE::SENSOR, p_sensor, 2) != -1;
 }
 
 packet_t Protocol::get_sensor(uint8_t ID) {
-    if (ID == RESERVED_BUFFER_ENTRY) {
+    if (ID == RESERVED_BUFFER_KEY) {
         std::cerr << "This ID is reserved" << std::endl;
         return {COMM_STATUS::SERIAL_NOT_IN_BUFFER, std::nullopt};
     }
