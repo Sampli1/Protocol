@@ -14,7 +14,7 @@ add_library(SER src/serial.cpp)
 add_library(NP src/nucleo_protocol.cpp)
 
 
-add_executable(myapp src/main.cpp)
+add_executable(myapp test/test.cpp)
 
 target_link_libraries(NP SER UTILS)
 target_link_libraries(myapp SER NP UTILS)
