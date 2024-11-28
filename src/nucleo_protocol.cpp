@@ -174,8 +174,8 @@ ssize_t Protocol::send_packet(uint8_t command, uint16_t *packet_array, size_t pa
     for (int i = 0; i < packet_array_length; i++) {
         uint8_t high = packet_array[i] >> 8;
         uint8_t low = (packet_array[i] & 0x00FF);
-        packet.push_back(high);
         packet.push_back(low);
+        packet.push_back(high);
     }
 
     uint8_t crc = calculate_CRC_8(packet);

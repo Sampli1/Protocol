@@ -14,7 +14,7 @@
 #define MAX_PACKET_SIZE 256
 
 
-const std::vector<std::string> serial_prefixes = {"/dev/ttyUSB", "/dev/ttyACM"};
+const std::vector<std::string> serial_prefixes = {"/dev/ttyS"};
 
 Serial::Serial() {
     m_connected = false;
@@ -225,6 +225,7 @@ std::vector<std::vector<uint8_t>> Serial::get_byte_vectors(uint8_t terminal, uin
 
 
 ssize_t Serial::send_byte_array(std::vector<uint8_t> bytes) {
+    tcflush(m_fd, TCOFLUSH);
     ssize_t written_byte = write(m_fd, bytes.data(), bytes.size());
     if (m_verbose) {
         std::cout << "[SERIAL] SENT: " << std::endl;

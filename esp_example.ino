@@ -1,4 +1,3 @@
-
 #include <Arduino.h>
 
 #define INIT_CODE 0xFF

@@ -87,14 +87,15 @@ int main(int argc, char **argv) {
         p.update_buffer();
 
         // Send motor data 
-        // p.send_packet(COMM_TYPE::MOTOR, p_motor, 8);
-        // p.send_packet(COMM_TYPE::ARM, p_arm, 1);
+        p.send_packet(COMM_TYPE::MOTOR, p_motor, 8);
+        p.send_packet(COMM_TYPE::ARM, p_arm, 1);
         
-
+        
         // Read packet
         packet_t hb = p.get_heartbeat();
         packet_t sensor_1 = p.get_sensor(temperature.id);
         packet_t sensor_2 = p.get_sensor(flood.id);
+        
         
         std::cout << "[HB]" << std::endl;
         if (hb.first == COMM_STATUS::OK) print_vec_(hb.second.value());
